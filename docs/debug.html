@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Debug - Login Test</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    .log { background: #f0f0f0; padding: 10px; margin: 10px 0; border-left: 3px solid #667eea; }
+    button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1> Debug Dashboard Redirect</h1>
+  
+  <div id="output"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-compat/app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-compat/auth.js"></script>
+
+  <script>
+    const output = document.getElementById('output');
+    
+    function log(msg) {
+      const div = document.createElement('div');
+      div.className = 'log';
+      div.textContent = msg;
+      output.appendChild(div);
+      console.log(msg);
+    }
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAxzF0TuP0PTvjveszTpRWQg3LVqkZRBZA",
+      authDomain: "billing-management-472f6.firebaseapp.com",
+      projectId: "billing-management-472f6",
+      storageBucket: "billing-management-472f6.firebasestorage.app",
+      messagingSenderId: "1050417456982",
+      appId: "1:1050417456982:web:e1c617557bbab9ccf558f7"
+    };
+
+    log(' Initializing Firebase...');
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    log(' Firebase initialized');
+
+    log(' Checking auth state...');
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        log(' User logged in: ' + user.email);
+        log(' UID: ' + user.uid);
+        log(' Ready to redirect to /home.html');
+      } else {
+        log(' No user logged in');
+      }
+    });
+
+    log(' Waiting 2 seconds...');
+    setTimeout(() => {
+      log(' Time elapsed, checking user again...');
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        log(' Current user found: ' + currentUser.email);
+        log(' Redirecting to /home.html now...');
+        window.location.href = '/home.html';
+      } else {
+        log(' No current user');
+      }
+    }, 2000);
+  </script>
+</body>
+</html>

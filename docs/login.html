@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coupon Manager - Login</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-container {
+      background: white;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 400px;
+    }
+    h1 { text-align: center; color: #333; margin-bottom: 10px; }
+    .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-weight: 500;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover { background: #5568d3; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .error { color: red; background: #ffe6e6; padding: 10px; margin-bottom: 15px; border-radius: 5px; }
+    .success { color: green; background: #e6ffe6; padding: 10px; margin-bottom: 15px; border-radius: 5px; }
+    .loading { text-align: center; color: #666; }
+      .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 10px;
+      color: #777;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #e5e7eb;
+    }
+    .google-btn {
+      background: white;
+      color: #111827;
+      border: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-weight: 600;
+    }
+    .google-btn:hover { background: #f9fafb; }
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .mode-btn {
+      margin-top: 0;
+      padding: 10px;
+      font-size: 14px;
+      background: #eef2ff;
+      color: #374151;
+      border: 1px solid #dbeafe;
+      border-radius: 6px;
+    }
+    .mode-btn.active {
+      background: #667eea;
+      color: #fff;
+      border-color: #667eea;
+    }
+    .text-btn {
+      background: none;
+      color: #667eea;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+      margin-top: 0;
+      padding: 0;
+      width: auto;
+      font-size: inherit;
+      font-weight: 600;
+    }
+    .forgot-wrap {
+      margin-top: 8px;
+      text-align: right;
+    }
+    .forgot-btn {
+      font-size: 12px;
+    }
+    .signup-only {
+      display: none;
+    }
+    .password-strength {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .password-strength strong {
+      font-weight: 700;
+    }
+    .strength-weak {
+      color: #dc2626;
+    }
+    .strength-medium {
+      color: #d97706;
+    }
+    .strength-strong {
+      color: #16a34a;
+    }
+    .verification-note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #6b7280;
+      text-align: center;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h1> Bill management</h1>
+    <p class="subtitle">Professional Management System</p>
+    
+    <div id="error-msg" class="error" style="display: none;"></div>
+    <div class="mode-switch">
+      <button type="button" id="mode-login" class="mode-btn active">Login</button>
+      <button type="button" id="mode-signup" class="mode-btn">Sign Up</button>
+    </div>
+    
+    <form id="login-form">
+      <div class="form-group signup-only" id="full-name-group">
+        <label for="full-name">Full Name</label>
+        <input type="text" id="full-name" placeholder="Enter your full name" autocomplete="name">
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" placeholder="your@email.com" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="password" id="password-label">Password</label>
+        <input type="password" id="password" placeholder="Your password" required>
+        <div id="password-strength" class="password-strength signup-only">Password strength: <strong>Weak</strong></div>
+      </div>
+
+      <div class="forgot-wrap" id="forgot-wrap">
+        <button type="button" class="text-btn forgot-btn" id="forgot-password-btn">Forgot Password?</button>
+      </div>
+
+      <div class="form-group signup-only" id="confirm-password-group">
+        <label for="confirm-password">Confirm Password</label>
+        <input type="password" id="confirm-password" placeholder="Re-enter your password" autocomplete="new-password">
+      </div>
+      
+      <button type="submit" id="login-btn">Login</button>
+    </form>
+    <div class="divider">
+      <span>or</span>
+    </div>
+
+    <button type="button" id="google-btn" class="google-btn">Continue with Google</button>
+    <p class="verification-note" id="verification-note" style="display: none;">Verification email may arrive in Primary, Promotions, or Spam folder.</p>
+    
+    <p style="text-align: center; margin-top: 20px; color: #666; font-size: 14px;">
+      <span id="auth-help-text">Don't have account?</span> <button type="button" class="text-btn" onclick="toggleSignup()" id="auth-help-action">Sign Up</button>
+    </p>
+  </div>
+
+  <!-- Firebase SDK - COMPAT VERSION -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+
+  <script>
+    let isSignupMode = false;
+    let auth = null;
+    let googleProvider = null;
+    let localAuthMode = false;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    const passwordRuleRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    const fallbackFirebaseConfig = {
+      apiKey: "AIzaSyAxzF0TuP0PTvjveszTpRWQg3LVqkZRBZA",
+      authDomain: "billing-management-472f6.firebaseapp.com",
+      databaseURL: "https://billing-management-472f6-default-rtdb.firebaseio.com",
+      projectId: "billing-management-472f6",
+      storageBucket: "billing-management-472f6.firebasestorage.app",
+      messagingSenderId: "1050417456982",
+      appId: "1:1050417456982:web:e1c617557bbab9ccf558f7",
+      measurementId: "G-C0EJTLTMBK"
+    };
+
+    async function tryLocalLogin(email, password) {
+      const candidates = [];
+      const emailValue = String(email || '').trim();
+      if (emailValue) candidates.push(emailValue);
+      if (emailValue.includes('@')) candidates.push(emailValue.split('@')[0]);
+      const deduped = [...new Set(candidates)];
+
+      let lastError = null;
+      for (const username of deduped) {
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const loginData = await loginRes.json().catch(() => ({}));
+        if (loginRes.ok && loginData.success) return loginData.user;
+        lastError = loginData.error || 'Invalid credentials';
+      }
+      throw new Error(lastError || 'Invalid credentials');
+    }
+
+    function setFormEnabled(enabled) {
+      const loginBtn = document.getElementById('login-btn');
+      const googleBtn = document.getElementById('google-btn');
+      const fullName = document.getElementById('full-name');
+      const email = document.getElementById('email');
+      const password = document.getElementById('password');
+      const confirmPassword = document.getElementById('confirm-password');
+      if (loginBtn) loginBtn.disabled = !enabled;
+      if (googleBtn) googleBtn.disabled = !enabled;
+      if (fullName) fullName.disabled = !enabled;
+      if (email) email.disabled = !enabled;
+      if (password) password.disabled = !enabled;
+      if (confirmPassword) confirmPassword.disabled = !enabled;
+    }
+
+    function getPasswordStrength(passwordValue) {
+      const password = String(passwordValue || '');
+      let score = 0;
+      if (password.length >= 8) score += 1;
+      if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+      if (/\d/.test(password)) score += 1;
+      if (/[^A-Za-z0-9]/.test(password)) score += 1;
+
+      if (score <= 1) return { label: 'Weak', className: 'strength-weak' };
+      if (score <= 3) return { label: 'Medium', className: 'strength-medium' };
+      return { label: 'Strong', className: 'strength-strong' };
+    }
+
+    function updatePasswordStrength() {
+      const password = document.getElementById('password').value;
+      const strengthEl = document.getElementById('password-strength');
+      if (!strengthEl) return;
+      const { label, className } = getPasswordStrength(password);
+      strengthEl.innerHTML = `Password strength: <strong class="${className}">${label}</strong>`;
+    }
+
+    async function loadFirebaseConfig() {
+      try {
+        const response = await fetch('/api/config/firebase');
+        if (response.ok) {
+          return response.json();
+        }
+      } catch (e) {
+        // fallback below
+      }
+      return fallbackFirebaseConfig;
+    }
+
+    async function initFirebaseAuth() {
+      const errorDiv = document.getElementById('error-msg');
+      setFormEnabled(false);
+      try {
+        const firebaseConfig = await loadFirebaseConfig();
+        if (!firebase.apps || firebase.apps.length === 0) {
+          firebase.initializeApp(firebaseConfig);
+        }
+        auth = firebase.auth();
+        googleProvider = new firebase.auth.GoogleAuthProvider();
+        googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+        auth.onAuthStateChanged(user => {
+          if (user) {
+            if (!user.emailVerified && user.providerData.some((provider) => provider.providerId === 'password')) {
+              auth.signOut().finally(() => {
+                errorDiv.textContent = ' Please verify your email first, then login.';
+                errorDiv.style.display = 'block';
+              });
+              return;
+            }
+            console.log(' Already logged in:', user.email);
+            window.location.replace('home.html');
+          }
+        });
+
+        setFormEnabled(true);
+        console.log(' Firebase ready');
+      } catch (error) {
+        console.error(' Firebase init failed:', error);
+        // Fallback to backend local login
+        localAuthMode = true;
+        errorDiv.textContent = ' Firebase unavailable. Using local login mode.';
+        errorDiv.style.display = 'block';
+        setFormEnabled(true);
+      }
+    }
+
+    document.getElementById('google-btn').addEventListener('click', async () => {
+      const errorDiv = document.getElementById('error-msg');
+      const googleBtn = document.getElementById('google-btn');
+      if (!auth || !googleProvider || localAuthMode) {
+        errorDiv.textContent = localAuthMode
+          ? ' Google login needs Firebase config. Email/Password login and Sign Up are available.'
+          : ' Firebase auth not ready yet.';
+        errorDiv.style.display = 'block';
+        return;
+      }
+      errorDiv.style.display = 'none';
+      googleBtn.disabled = true;
+      googleBtn.textContent = 'Connecting...';
+
+      try {
+        await auth.signInWithPopup(googleProvider);
+        window.location.href = 'home.html';
+      } catch (error) {
+        if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
+          await auth.signInWithRedirect(googleProvider);
+          return;
+        }
+        errorDiv.textContent = ' ' + error.message;
+        errorDiv.style.display = 'block';
+        googleBtn.disabled = false;
+        googleBtn.textContent = 'Continue with Google';
+      }
+    });
+
+    document.getElementById('forgot-password-btn').addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim();
+      const errorDiv = document.getElementById('error-msg');
+
+      if (isSignupMode) {
+        errorDiv.className = 'error';
+        errorDiv.textContent = ' Switch to Login mode to reset password.';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      if (!email) {
+        errorDiv.className = 'error';
+        errorDiv.textContent = ' Enter your email first to reset password.';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      if (!emailRegex.test(email)) {
+        errorDiv.className = 'error';
+        errorDiv.textContent = ' Please enter a valid email address';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      if (localAuthMode) {
+        errorDiv.className = 'error';
+        errorDiv.textContent = ' Password reset is only available with Firebase email login.';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      if (!auth || typeof auth.sendPasswordResetEmail !== 'function') {
+        errorDiv.className = 'error';
+        errorDiv.textContent = ' Firebase auth not ready yet.';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      try {
+        await auth.sendPasswordResetEmail(email);
+        errorDiv.className = 'success';
+        errorDiv.textContent = ' Password reset link sent. Check Primary, Promotions, and Spam.';
+        errorDiv.style.display = 'block';
+      } catch (error) {
+        errorDiv.className = 'error';
+        errorDiv.textContent = ' ' + error.message;
+        errorDiv.style.display = 'block';
+      }
+    });
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value.trim();
+      const fullName = document.getElementById('full-name').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const confirmPassword = document.getElementById('confirm-password').value.trim();
+      const btn = document.getElementById('login-btn');
+      const errorDiv = document.getElementById('error-msg');
+
+      if (!email || !password) {
+        errorDiv.textContent = ' Please enter email and password';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      if (!emailRegex.test(email)) {
+        errorDiv.textContent = ' Please enter a valid email address';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      if (isSignupMode) {
+        if (!fullName) {
+          errorDiv.textContent = ' Please enter full name';
+          errorDiv.style.display = 'block';
+          return;
+        }
+
+        if (!passwordRuleRegex.test(password)) {
+          errorDiv.textContent = ' Password must be 8+ chars with upper, lower, and number';
+          errorDiv.style.display = 'block';
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          errorDiv.textContent = ' Password and confirm password do not match';
+          errorDiv.style.display = 'block';
+          return;
+        }
+      }
+
+      btn.disabled = true;
+      btn.textContent = isSignupMode ? 'Creating...' : 'Logging in...';
+      errorDiv.style.display = 'none';
+
+      try {
+        if (localAuthMode) {
+          if (isSignupMode) {
+            throw new Error(' Sign Up is disabled in local mode. Use existing credentials.');
+          }
+
+          // Login after signup (or direct login)
+          const user = await tryLocalLogin(email, password);
+          localStorage.setItem('localUser', JSON.stringify({
+            id: user.id,
+            username: user.username,
+            email: user.email
+          }));
+        } else if (isSignupMode) {
+          const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+          await userCredential.user.updateProfile({ displayName: fullName });
+          await userCredential.user.sendEmailVerification();
+          await auth.signOut();
+          errorDiv.textContent = ' Verification email sent. Check Primary, Promotions, and Spam, then login.';
+          errorDiv.style.display = 'block';
+          document.getElementById('full-name').value = '';
+          document.getElementById('confirm-password').value = '';
+          btn.disabled = false;
+          btn.textContent = 'Login';
+          setAuthMode(false);
+          return;
+        } else {
+          const userCredential = await auth.signInWithEmailAndPassword(email, password);
+          if (!userCredential.user.emailVerified) {
+            await auth.signOut();
+            throw new Error(' Please verify your email first, then login.');
+          }
+        }
+        window.location.href = 'home.html';
+      } catch (error) {
+        errorDiv.textContent = ' ' + error.message;
+        errorDiv.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = isSignupMode ? 'Sign Up' : 'Login';
+      }
+    });
+
+    function toggleSignup() {
+      setAuthMode(!isSignupMode);
+    }
+
+    function setAuthMode(signupMode) {
+      isSignupMode = Boolean(signupMode);
+      const loginBtn = document.getElementById('login-btn');
+      const modeLogin = document.getElementById('mode-login');
+      const modeSignup = document.getElementById('mode-signup');
+      const helpText = document.getElementById('auth-help-text');
+      const helpAction = document.getElementById('auth-help-action');
+      const fullNameGroup = document.getElementById('full-name-group');
+      const confirmPasswordGroup = document.getElementById('confirm-password-group');
+      const passwordStrength = document.getElementById('password-strength');
+      const passwordLabel = document.getElementById('password-label');
+      const verificationNote = document.getElementById('verification-note');
+      const confirmPasswordInput = document.getElementById('confirm-password');
+      const forgotWrap = document.getElementById('forgot-wrap');
+
+      if (loginBtn) loginBtn.textContent = isSignupMode ? 'Sign Up' : 'Login';
+      if (modeLogin) modeLogin.classList.toggle('active', !isSignupMode);
+      if (modeSignup) modeSignup.classList.toggle('active', isSignupMode);
+      if (helpText) helpText.textContent = isSignupMode ? 'Already have account?' : "Don't have account?";
+      if (helpAction) helpAction.textContent = isSignupMode ? 'Login' : 'Sign Up';
+      if (forgotWrap) forgotWrap.style.display = isSignupMode ? 'none' : 'block';
+      if (fullNameGroup) fullNameGroup.style.display = isSignupMode ? 'block' : 'none';
+      if (confirmPasswordGroup) confirmPasswordGroup.style.display = isSignupMode ? 'block' : 'none';
+      if (passwordStrength) passwordStrength.style.display = isSignupMode ? 'block' : 'none';
+      if (passwordLabel) passwordLabel.textContent = isSignupMode ? 'Create Password' : 'Password';
+      if (verificationNote) verificationNote.style.display = isSignupMode ? 'block' : 'none';
+      if (confirmPasswordInput) confirmPasswordInput.required = isSignupMode;
+      updatePasswordStrength();
+    }
+
+    try {
+      const existingLocalUser = localStorage.getItem('localUser');
+      if (existingLocalUser) {
+        window.location.replace('home.html');
+      }
+    } catch (e) {}
+
+    document.getElementById('mode-login').addEventListener('click', () => setAuthMode(false));
+    document.getElementById('mode-signup').addEventListener('click', () => setAuthMode(true));
+    document.getElementById('password').addEventListener('input', updatePasswordStrength);
+    setAuthMode(false);
+    initFirebaseAuth();
+  </script>
+</body>
+</html>
+
+

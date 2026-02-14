@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Firebase Test</title>
+  <style>
+    body { font-family: Arial; margin: 20px; background: #f0f0f0; }
+    .box { background: white; padding: 20px; margin: 10px 0; border-radius: 5px; }
+    button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    .error { color: red; }
+    .success { color: green; }
+    .log { background: #f9f9f9; padding: 10px; margin: 5px 0; border-left: 3px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h1> Firebase Debug Test</h1>
+  
+  <div class="box">
+    <h3>Step 1: Check Firebase SDK</h3>
+    <button onclick="checkFirebase()">Check Firebase</button>
+    <div id="firebase-check" class="log"></div>
+  </div>
+
+  <div class="box">
+    <h3>Step 2: Login Test</h3>
+    <input type="email" id="test-email" placeholder="Email" value="test@example.com">
+    <input type="password" id="test-password" placeholder="Password" value="password123">
+    <button onclick="testSignup()">Sign Up Test</button>
+    <button onclick="testLogin()">Login Test</button>
+    <div id="auth-result" class="log"></div>
+  </div>
+
+  <div class="box">
+    <h3>Console Output</h3>
+    <div id="console-output" style="background: #000; color: #0f0; padding: 15px; border-radius: 5px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+  </div>
+
+  <!-- Firebase SDK - compat (provides global `firebase`) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+
+  <script>
+    // Redirect console to page
+    const consoleDiv = document.getElementById('console-output');
+    const originalLog = console.log;
+    const originalError = console.error;
+    
+    function addLog(msg, type = 'log') {
+      const line = document.createElement('div');
+      line.textContent = msg;
+      if (type === 'error') line.style.color = '#f44';
+      consoleDiv.appendChild(line);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+      if (type === 'log') originalLog(msg);
+      else originalError(msg);
+    }
+
+    console.log = function(...args) {
+      addLog(args.join(' '), 'log');
+    };
+    
+    console.error = function(...args) {
+      addLog(' ' + args.join(' '), 'error');
+    };
+
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyAxzF0TuP0PTvjveszTpRWQg3LVqkZRBZA",
+      authDomain: "billing-management-472f6.firebaseapp.com",
+      projectId: "billing-management-472f6",
+      storageBucket: "billing-management-472f6.firebasestorage.app",
+      messagingSenderId: "1050417456982",
+      appId: "1:1050417456982:web:e1c617557bbab9ccf558f7"
+    };
+
+    let auth = null;
+
+    function checkFirebase() {
+      const result = document.getElementById('firebase-check');
+      result.innerHTML = '';
+      
+      try {
+        if (typeof firebase === 'undefined') {
+          addLog(' Firebase SDK NOT loaded!');
+          result.innerHTML += '<p class="error"> Firebase SDK missing</p>';
+          return;
+        }
+
+        firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        
+        addLog(' Firebase initialized successfully!');
+        result.innerHTML += '<p class="success"> Firebase ready!</p>';
+      } catch (e) {
+        addLog(' Error: ' + e.message);
+        result.innerHTML += '<p class="error">Error: ' + e.message + '</p>';
+      }
+    }
+
+    function testSignup() {
+      if (!auth) {
+        alert('Click "Check Firebase" first!');
+        return;
+      }
+
+      const email = document.getElementById('test-email').value;
+      const password = document.getElementById('test-password').value;
+      const result = document.getElementById('auth-result');
+
+      addLog(' Attempting signup: ' + email);
+
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(user => {
+          addLog(' Signup successful: ' + user.user.email);
+          result.innerHTML = '<p class="success"> Signup successful: ' + user.user.email + '</p>';
+        })
+        .catch(error => {
+          addLog(' Signup failed: ' + error.message);
+          result.innerHTML = '<p class="error"> ' + error.message + '</p>';
+        });
+    }
+
+    function testLogin() {
+      if (!auth) {
+        alert('Click "Check Firebase" first!');
+        return;
+      }
+
+      const email = document.getElementById('test-email').value;
+      const password = document.getElementById('test-password').value;
+      const result = document.getElementById('auth-result');
+
+      addLog(' Attempting login: ' + email);
+
+      auth.signInWithEmailAndPassword(email, password)
+        .then(user => {
+          addLog(' Login successful: ' + user.user.email);
+          result.innerHTML = '<p class="success"> Login successful: ' + user.user.email + '</p>';
+        })
+        .catch(error => {
+          addLog(' Login failed: ' + error.message);
+          result.innerHTML = '<p class="error"> ' + error.message + '</p>';
+        });
+    }
+
+    // Auto-check Firebase on load
+    window.addEventListener('load', () => {
+      addLog(' Page loaded, checking Firebase...');
+      setTimeout(checkFirebase, 500);
+    });
+  </script>
+</body>
+</html>

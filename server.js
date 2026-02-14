@@ -61,45 +61,53 @@ function toFirebaseKey(value) {
     .replace(/[.#$/\[\]]/g, '_');
 }
 
-function buildFirebaseUrl(dbPath) {
+function buildFirebaseUrl(dbPath, includeAuth = true) {
   const base = getFirebaseDbBaseUrl();
   if (!base) return null;
   const safePath = String(dbPath || '').replace(/^\/+/, '');
   const secret = getFirebaseDbSecret();
-  const authQuery = secret ? `?auth=${encodeURIComponent(secret)}` : '';
+  const authQuery = includeAuth && secret ? `?auth=${encodeURIComponent(secret)}` : '';
   return `${base}/${safePath}.json${authQuery}`;
 }
 
+async function firebaseRequest(method, dbPath, payload) {
+  const requestOnce = async (includeAuth) => {
+    const url = buildFirebaseUrl(dbPath, includeAuth);
+    if (!url) return { ok: false, status: 0 };
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: payload === undefined ? undefined : JSON.stringify(payload)
+    });
+    return response;
+  };
+
+  const first = await requestOnce(true);
+  if (first.ok) return true;
+
+  // Some Firebase setups reject legacy auth token usage; retry without auth query.
+  if ((first.status === 401 || first.status === 403) && getFirebaseDbSecret()) {
+    const retry = await requestOnce(false);
+    if (retry.ok) return true;
+    throw new Error(`Firebase ${method} failed (${retry.status})`);
+  }
+
+  throw new Error(`Firebase ${method} failed (${first.status})`);
+}
+
 async function firebasePut(dbPath, payload) {
-  const url = buildFirebaseUrl(dbPath);
-  if (!url) return false;
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!response.ok) throw new Error(`Firebase PUT failed (${response.status})`);
-  return true;
+  if (!buildFirebaseUrl(dbPath, false)) return false;
+  return firebaseRequest('PUT', dbPath, payload);
 }
 
 async function firebasePatch(dbPath, payload) {
-  const url = buildFirebaseUrl(dbPath);
-  if (!url) return false;
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!response.ok) throw new Error(`Firebase PATCH failed (${response.status})`);
-  return true;
+  if (!buildFirebaseUrl(dbPath, false)) return false;
+  return firebaseRequest('PATCH', dbPath, payload);
 }
 
 async function firebaseDeleteNode(dbPath) {
-  const url = buildFirebaseUrl(dbPath);
-  if (!url) return false;
-  const response = await fetch(url, { method: 'DELETE' });
-  if (!response.ok) throw new Error(`Firebase DELETE failed (${response.status})`);
-  return true;
+  if (!buildFirebaseUrl(dbPath, false)) return false;
+  return firebaseRequest('DELETE', dbPath);
 }
 
 function syncToFirebase(taskLabel, promiseFactory) {

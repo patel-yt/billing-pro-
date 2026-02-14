@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Bill management</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    /* Override as needed - most styles from style.css */
+    main { display: block !important; }
+    footer { display: block !important; }
+  </style>
+</head>
+<body>
+  <div id="loading" style="text-align: center; padding: 40px; background: white; margin-top: 40px;">
+    <p> Loading dashboard...</p>
+  </div>
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <div class="header-content">
+        <div class="header-brand">
+          <h1>Billing Management System</h1>
+          <p class="header-subtitle">by Shahid</p>
+        </div>
+        <div class="header-right">
+          <span id="user-info" class="user-info user-name-chip"></span>
+          <div class="header-icons">
+            <button class="btn btn-small btn-profile header-icon-btn" id="profile-btn" title="Profile" aria-label="Profile">
+              <svg class="profile-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="8" r="4"></circle>
+                <path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"></path>
+              </svg>
+            </button>
+            <button class="btn btn-small header-icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+              <svg class="theme-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 1 0 9.8 9.8z"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="container nav-container">
+      <button class="nav-btn active" data-page="dashboard">Dashboard</button>
+      <button class="nav-btn" data-page="billing">Billing</button>
+      <button class="nav-btn" data-page="coupon-manager">Coupons</button>
+      <button class="nav-btn" data-page="item-manager">Items</button>
+      <button class="nav-btn" data-page="check-coupon">Check Coupon</button>
+      <button class="nav-btn" data-page="check-item">Check Item</button>
+      <button class="nav-btn" data-page="analytics">Analytics</button>
+      <button class="nav-btn" data-page="activity">Activity</button>
+      <button class="nav-btn" data-page="settings">Settings</button>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="container main-content">
+
+      <!-- ============ DASHBOARD PAGE ============ -->
+      <section class="page" id="page-dashboard" data-page="dashboard">
+        <h2>Dashboard</h2>
+        <div class="dashboard-grid">
+          <div class="dashboard-card">
+            <h3> Coupons</h3>
+            <p class="stat" id="stat-coupons">0</p>
+            <p class="dashboard-desc">Active coupons</p>
+          </div>
+          <div class="dashboard-card">
+            <h3> Items</h3>
+            <p class="stat" id="stat-items">0</p>
+            <p class="dashboard-desc">Total products</p>
+          </div>
+          <div class="dashboard-card">
+            <h3> Bills</h3>
+            <p class="stat" id="stat-bills">0</p>
+            <p class="dashboard-desc">Bills created</p>
+          </div>
+          <div class="dashboard-card">
+            <h3> Revenue</h3>
+            <p class="stat" id="stat-revenue">0</p>
+            <p class="dashboard-desc">Total sales</p>
+          </div>
+          <div class="dashboard-card alert-card">
+            <h3> Low Stock</h3>
+            <p class="stat" id="stat-low-stock">0</p>
+            <p class="dashboard-desc">Items below threshold</p>
+          </div>
+          <div class="dashboard-card">
+            <h3> Total Users</h3>
+            <p class="stat" id="stat-users">0</p>
+            <p class="dashboard-desc">System users</p>
+          </div>
+        </div>
+        
+        <!-- Status Indicators -->
+        <div class="status-section">
+          <h3>System Status</h3>
+          <div class="status-grid">
+            <div class="status-card">
+              <p id="coupons-status"> No coupons added</p>
+            </div>
+            <div class="status-card">
+              <p id="items-status"> No items added</p>
+            </div>
+            <div class="status-card">
+              <p id="all-status"> Setup required</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ ANALYTICS PAGE ============ -->
+      <section class="page" id="page-analytics" data-page="analytics" style="display:none;">
+        <h2>Analytics & Reports</h2>
+        <div class="analytics-container">
+          <div class="chart-card">
+            <h3>Sales Trend (Last 30 Days)</h3>
+            <canvas id="salesChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Revenue Breakdown</h3>
+            <canvas id="revenueChart"></canvas>
+          </div>
+        </div>
+        <div class="export-section">
+          <h3>Export Data</h3>
+          <div class="button-group">
+            <button class="btn btn-secondary" onclick="exportCSV('items')"> Export Items</button>
+            <button class="btn btn-secondary" onclick="exportCSV('coupons')"> Export Coupons</button>
+            <button class="btn btn-secondary" onclick="exportCSV('bills')"> Export Bills</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ COUPON MANAGER PAGE ============ -->
+      <section class="page" id="page-coupon-manager" data-page="coupon-manager" style="display:none;">
+        <h2>Coupon Manager</h2>
+        <div class="form-section">
+          <h3>Add New Coupon</h3>
+          <form id="coupon-form" class="form">
+            <div class="form-group">
+              <label>Code *</label>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <input type="text" id="coupon-code" placeholder="SAVE20" required list="coupon-code-list" style="flex:1;">
+                <button type="button" class="btn btn-secondary" id="generate-coupon-code">Generate</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Discount % *</label>
+              <input type="number" id="discount-percent" placeholder="20" min="0" max="100" required>
+            </div>
+            <div class="form-group">
+              <label>Min Purchase</label>
+              <input type="number" id="min-purchase" placeholder="0" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label>Max Uses</label>
+              <input type="number" id="max-uses" placeholder="-1 for unlimited" step="1">
+            </div>
+            <div class="form-group">
+              <label>Expires At</label>
+              <input type="datetime-local" id="expires-at">
+            </div>
+            <button type="submit" class="btn btn-primary">Add Coupon</button>
+          </form>
+          <div style="margin-top: 15px;">
+            <div style="font-weight: 600; margin-bottom: 6px;">Coupon QR</div>
+            <div id="coupon-qr"></div>
+          </div>
+          <div style="margin-top: 15px;">
+            <div style="font-weight: 600; margin-bottom: 6px;">Coupon Barcode</div>
+            <div id="coupon-barcode"></div>
+          </div>
+        </div>
+        <div class="list-section">
+          <h3>All Coupons</h3>
+          <div class="button-group" style="margin-bottom: 10px;">
+            <button class="btn btn-danger" onclick="deleteAllCouponsFunc()">Delete All Coupons</button>
+          </div>
+          <div id="coupons-list" class="list"></div>
+        </div>
+      </section>
+
+      <!-- ============ ITEM MANAGER PAGE ============ -->
+      <section class="page" id="page-item-manager" data-page="item-manager" style="display:none;">
+        <h2>Item Manager</h2>
+        <div class="form-section">
+          <h3>Add New Item</h3>
+          <form id="item-form" class="form">
+            <div class="form-group">
+              <label>Item Name *</label>
+              <input type="text" id="item-name" placeholder="Notebook" required list="item-name-list">
+            </div>
+            <div class="form-group">
+              <label>Price () *</label>
+              <input type="number" id="item-price" placeholder="20" min="0" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label>Item Code</label>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <input type="text" id="item-code" placeholder="Auto-generated" list="item-code-list" style="flex:1;">
+                <button type="button" class="btn btn-secondary" id="generate-item-code">Generate</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select id="item-category">
+                <option>-- Select Category --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Stock Quantity</label>
+              <input type="number" id="item-stock" value="100" min="0">
+            </div>
+            <div class="form-group">
+              <label>Description</label>
+              <textarea id="item-description" placeholder="Item details"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Item</button>
+          </form>
+          <div style="margin-top: 15px;">
+            <div style="font-weight: 600; margin-bottom: 6px;">Item QR</div>
+            <div id="item-qr"></div>
+          </div>
+        </div>
+        <div class="list-section">
+          <h3>All Items</h3>
+          <div id="items-list" class="list"></div>
+        </div>
+      </section>
+
+      <!-- ============ CHECK COUPON PAGE ============ -->
+      <section class="page" id="page-check-coupon" data-page="check-coupon" style="display:none;">
+        <h2>Check Coupon Validity</h2>
+        <div class="scanner-section">
+          <div class="tab-buttons">
+            <button class="tab-btn active" data-tab="scan"> Scan QR</button>
+            <button class="tab-btn" data-tab="manual"> Manual</button>
+          </div>
+          <div class="tab-content active" data-tab="scan">
+            <video id="qr-video" class="qr-video"></video>
+            <canvas id="qr-canvas" style="display:none;"></canvas>
+            <button class="btn btn-primary" id="start-qr-scan">Start Scanner</button>
+            <button class="btn btn-secondary" id="stop-qr-scan" style="display:none;">Stop</button>
+          </div>
+          <div class="tab-content" data-tab="manual" style="display:none;">
+            <input type="text" id="manual-coupon-code" placeholder="Enter coupon code" class="form-input" list="coupon-code-list">
+            <button class="btn btn-primary" onclick="validateCouponManual()">Check</button>
+          </div>
+        </div>
+        <div id="coupon-result" class="result-card" style="display:none;"></div>
+      </section>
+
+      <!-- ============ CHECK ITEM PAGE ============ -->
+      <section class="page" id="page-check-item" data-page="check-item" style="display:none;">
+        <h2>Check Item Details</h2>
+        <div class="scanner-section">
+          <div class="tab-buttons">
+            <button class="tab-btn active" data-tab="scan"> Scan QR</button>
+            <button class="tab-btn" data-tab="manual"> Manual</button>
+          </div>
+          <div class="tab-content active" data-tab="scan">
+            <video id="item-qr-video" class="qr-video"></video>
+            <canvas id="item-qr-canvas" style="display:none;"></canvas>
+            <button class="btn btn-primary" id="start-item-scan">Start Scanner</button>
+            <button class="btn btn-secondary" id="stop-item-scan" style="display:none;">Stop</button>
+          </div>
+          <div class="tab-content" data-tab="manual" style="display:none;">
+            <input type="text" id="manual-item-code" placeholder="Enter item code" class="form-input" list="item-code-list">
+            <button class="btn btn-primary" onclick="checkItemManual()">Check</button>
+          </div>
+        </div>
+        <div id="item-result" class="result-card" style="display:none;"></div>
+      </section>
+
+      <!-- ============ BILLING PAGE ============ -->
+      <section class="page" id="page-billing" data-page="billing" style="display:none;">
+        <h2>Billing & Checkout</h2>
+        <div class="billing-container">
+          <div class="billing-left">
+            <div class="add-item-section">
+              <h3>Add Items</h3>
+              <div class="tab-buttons">
+                <button class="tab-btn active" data-tab="scan"> Scan</button>
+                <button class="tab-btn" data-tab="manual"> Manual</button>
+              </div>
+              <div class="tab-content active" data-tab="scan">
+                <video id="billing-qr-video" class="qr-video"></video>
+                <canvas id="billing-qr-canvas" style="display:none;"></canvas>
+                <button class="btn btn-primary" id="start-billing-scan">Start Scanner</button>
+                <button class="btn btn-secondary" id="stop-billing-scan" style="display:none;">Stop</button>
+              </div>
+              <div class="tab-content" data-tab="manual" style="display:none;">
+                <input type="text" id="billing-item-search" placeholder="Search item by name or code" class="form-input" list="billing-item-suggestion-list">
+                <select id="item-select" class="form-input">
+                  <option>-- Select Item --</option>
+                </select>
+                <input type="number" id="item-quantity" value="1" min="1" class="form-input">
+                <button class="btn btn-primary" onclick="addItemToCart()">Add to Cart</button>
+              </div>
+            </div>
+          </div>
+          <div class="billing-right">
+            <div class="coupon-section">
+              <h4>Customer Details</h4>
+              <input type="text" id="billing-customer-name" placeholder="Customer name" class="form-input">
+              <input type="text" id="billing-customer-mobile" placeholder="Customer mobile number" class="form-input">
+              <input type="text" id="billing-bike-number" placeholder="Bike number" class="form-input">
+              <input type="datetime-local" id="billing-date" class="form-input">
+              <input type="file" id="billing-attachment" class="form-input" accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx">
+              <p id="billing-attachment-info" style="margin: 4px 0 0; color: #6b7280; font-size: 0.85rem;">No document selected</p>
+            </div>
+            <div class="cart-section">
+              <h3>Shopping Cart</h3>
+              <div id="cart-items" class="cart-items"></div>
+              <div class="divider"></div>
+              <div class="cart-totals">
+                <div class="total-row">
+                  <span>Subtotal:</span>
+                  <span id="subtotal"> 0</span>
+                </div>
+                <div class="total-row">
+                  <span>Discount:</span>
+                  <span id="discount-amount"> 0</span>
+                </div>
+                <div class="total-row total-final">
+                  <span>Total:</span>
+                  <span id="total-amount"> 0</span>
+                </div>
+              </div>
+              <div class="coupon-section">
+                <h4>Apply Coupon</h4>
+                <div style="display:flex; gap:10px; align-items:center;">
+                  <input type="text" id="billing-coupon" placeholder="Coupon code" class="form-input" list="coupon-code-list" style="flex:1;">
+                  <button class="btn btn-secondary" type="button" id="billing-coupon-scan" title="Scan Coupon">Scan</button>
+                </div>
+                <button class="btn btn-secondary" onclick="applyCoupon()">Apply</button>
+                <div id="coupon-message" style="display:none;"></div>
+              </div>
+              <div class="coupon-section">
+                <h4>Payment Method</h4>
+                <select id="payment-method" class="form-input">
+                  <option value="cash"> Cash</option>
+                  <option value="card"> Card</option>
+                  <option value="upi"> UPI</option>
+                </select>
+              </div>
+              <div class="checkout-buttons">
+                <button class="btn btn-danger" onclick="clearCart()">Clear</button>
+                <button class="btn btn-success" onclick="checkout()">Checkout</button>
+                <button class="btn btn-secondary" id="billing-receipt-action-btn" onclick="handleReceiptAction()">Print</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="list-section" style="margin-top: 20px;">
+          <h3>Bill History</h3>
+          <div class="bill-history-controls">
+            <div class="bill-search-wrap">
+              <input type="text" id="bill-search" class="form-input bill-search-input" placeholder="Search by name, mobile no, bike no">
+            </div>
+            <button class="btn btn-secondary bill-filter-toggle" id="bill-filter-toggle" type="button" title="Filters" aria-label="Filters">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="bill-filters-panel" id="bill-filters-panel" style="display:none;">
+            <div class="button-group" style="margin-bottom: 10px;">
+              <select id="bill-filter-payment" class="form-input" style="max-width: 170px; margin-bottom: 0;">
+                <option value="all">All Payments</option>
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="upi">UPI</option>
+              </select>
+              <select id="bill-filter-attachment" class="form-input" style="max-width: 190px; margin-bottom: 0;">
+                <option value="all">All Attachments</option>
+                <option value="with">With Attachment</option>
+                <option value="without">Without Attachment</option>
+              </select>
+              <select id="bill-filter-date" class="form-input" style="max-width: 170px; margin-bottom: 0;">
+                <option value="all">All Dates</option>
+                <option value="today">Today</option>
+                <option value="last7">Last 7 Days</option>
+                <option value="thisMonth">This Month</option>
+              </select>
+              <button class="btn btn-secondary" onclick="clearBillFilters()">Clear</button>
+            </div>
+          </div>
+          <div class="button-group" style="margin-bottom: 10px;">
+            <button class="btn btn-danger" onclick="deleteAllBillsFunc()">Delete All Bills</button>
+          </div>
+          <div id="bill-preview" class="result-card" style="display:none; margin-bottom: 12px;"></div>
+          <div id="bills-list" class="list"></div>
+        </div>
+      </section>
+
+      <!-- ============ ACTIVITY LOG PAGE ============ -->
+      <section class="page" id="page-activity" data-page="activity" style="display:none;">
+        <h2>Activity Log</h2>
+        <div id="activity-list" class="list"></div>
+      </section>
+
+      <!-- ============ SETTINGS PAGE ============ -->
+      <section class="page" id="page-settings" data-page="settings" style="display:none;">
+        <h2>Settings</h2>
+        <div class="settings-container">
+          <div class="settings-card">
+            <h3>Application Settings</h3>
+            <div class="form-group">
+              <label>Company Name</label>
+              <input type="text" id="setting-company" placeholder="Your Company Name" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Currency</label>
+              <input type="text" id="setting-currency" value="" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Tax Percentage</label>
+              <input type="number" id="setting-tax" value="0" min="0" max="100" class="form-input">
+            </div>
+            <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+          </div>
+          <div class="settings-card">
+            <h3>Categories</h3>
+            <div class="form-group">
+              <input type="text" id="new-category" placeholder="New category name" class="form-input">
+              <button class="btn btn-primary" onclick="addNewCategory()">Add Category</button>
+            </div>
+            <div id="categories-list" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      <p>&copy; 2024 Billing Management System by Shahid </p>
+    </footer>
+  </div>
+
+  <datalist id="coupon-code-list"></datalist>
+  <datalist id="item-code-list"></datalist>
+  <datalist id="item-name-list"></datalist>
+  <datalist id="billing-item-suggestion-list"></datalist>
+
+  <!-- Firebase SDK - COMPAT VERSION -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+
+  <!-- QR Code Scanner Library - jsQR -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <!-- QR Code Generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <!-- Barcode Generator -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+  <!-- Chart.js for analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+  <div class="modal-overlay" id="profile-modal" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>User Profile</h3>
+        <button class="modal-close-btn" id="profile-close-btn" type="button" aria-label="Close Profile">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="profile-form-fields">
+          <div class="form-group">
+            <label>Email (cannot be changed)</label>
+            <input type="email" id="profile-email" class="form-input" readonly>
+          </div>
+          <div class="form-group">
+            <label>Name *</label>
+            <input type="text" id="profile-full-name" class="form-input" placeholder="Enter full name" required>
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" id="profile-phone" class="form-input" placeholder="Enter phone number">
+          </div>
+          <div class="form-group">
+            <label>Address</label>
+            <textarea id="profile-address" class="form-input" placeholder="Enter address"></textarea>
+          </div>
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" id="profile-city" class="form-input" placeholder="City">
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input type="text" id="profile-state" class="form-input" placeholder="State">
+          </div>
+          <div class="form-group">
+            <label>Pincode</label>
+            <input type="text" id="profile-pincode" class="form-input" placeholder="Pincode">
+          </div>
+        </div>
+        <div class="result-card" id="profile-summary" style="margin-top: 8px;"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="profile-save-btn" type="button">Update</button>
+        <button class="btn btn-danger" id="profile-logout-btn" type="button">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay coupon-scan-modal" id="billing-coupon-scan-modal" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Scan Coupon</h3>
+      </div>
+      <div class="modal-body">
+        <p class="coupon-scan-modal-note">Point camera at coupon QR or barcode to auto-apply.</p>
+        <video id="billing-coupon-modal-video" class="qr-video" autoplay muted playsinline></video>
+        <canvas id="billing-coupon-modal-canvas" style="display:none;"></canvas>
+        <p id="billing-coupon-modal-status" class="coupon-scan-modal-status">Starting camera...</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="billing-coupon-scan-torch" type="button" style="display:none;">Torch On</button>
+        <button class="btn btn-secondary" id="billing-coupon-scan-close" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

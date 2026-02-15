@@ -836,6 +836,9 @@ function setupEventListeners() {
       renderQRCode('item-qr', payload, 180);
     }
   });
+  document.getElementById('item-description')?.addEventListener('input', (e) => autoResizeTextarea(e.target));
+  const itemDescription = document.getElementById('item-description');
+  if (itemDescription) autoResizeTextarea(itemDescription);
 
   document.getElementById('scan-item-barcode-btn')?.addEventListener('click', openItemBarcodeScannerModal);
   document.getElementById('item-barcode-scan-close')?.addEventListener('click', closeItemBarcodeScannerModal);
@@ -1282,6 +1285,13 @@ function showNotification(message, type = 'success') {
   document.body.appendChild(notification);
   
   setTimeout(() => notification.remove(), 3000);
+}
+
+function autoResizeTextarea(textareaEl) {
+  if (!textareaEl) return;
+  textareaEl.style.height = 'auto';
+  const nextHeight = Math.min(textareaEl.scrollHeight, 280);
+  textareaEl.style.height = `${Math.max(nextHeight, 90)}px`;
 }
 
 function showCouponResult(coupon) {

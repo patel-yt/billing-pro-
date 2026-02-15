@@ -3203,3 +3203,27 @@ body.dark-mode .coupon-scan-modal-status {
     margin-top: 1px;
   }
 }
+
+.item-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.item-filter-mobile-trigger {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+}
+
+@media (max-width: 768px) {
+  .item-filter-mobile-trigger {
+    display: inline-flex;
+  }
+
+  #item-filter-row {
+    display: none !important;
+  }
+}

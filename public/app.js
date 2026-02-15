@@ -851,14 +851,24 @@ function setupEventListeners() {
   document.getElementById('item-search-input')?.addEventListener('input', applyItemManagerFilters);
   document.getElementById('item-filter-category')?.addEventListener('change', applyItemManagerFilters);
   document.getElementById('item-filter-stock')?.addEventListener('change', applyItemManagerFilters);
-  document.getElementById('item-filter-reset')?.addEventListener('click', () => {
-    const searchEl = document.getElementById('item-search-input');
-    const categoryEl = document.getElementById('item-filter-category');
-    const stockEl = document.getElementById('item-filter-stock');
-    if (searchEl) searchEl.value = '';
-    if (categoryEl) categoryEl.value = '';
-    if (stockEl) stockEl.value = '';
+  document.getElementById('item-filter-reset')?.addEventListener('click', resetItemManagerFilters);
+  document.getElementById('item-filter-mobile-open')?.addEventListener('click', openItemFilterModal);
+  document.getElementById('item-filter-mobile-close')?.addEventListener('click', closeItemFilterModal);
+  document.getElementById('item-filter-mobile-reset')?.addEventListener('click', () => {
+    const mobileSearch = document.getElementById('item-search-input-mobile');
+    const mobileCategory = document.getElementById('item-filter-category-mobile');
+    const mobileStock = document.getElementById('item-filter-stock-mobile');
+    if (mobileSearch) mobileSearch.value = '';
+    if (mobileCategory) mobileCategory.value = '';
+    if (mobileStock) mobileStock.value = '';
+  });
+  document.getElementById('item-filter-mobile-apply')?.addEventListener('click', () => {
+    syncMobileFiltersToDesktop();
     applyItemManagerFilters();
+    closeItemFilterModal();
+  });
+  document.getElementById('item-filter-modal')?.addEventListener('click', (e) => {
+    if (e.target?.id === 'item-filter-modal') closeItemFilterModal();
   });
   const itemDescription = document.getElementById('item-description');
   if (itemDescription) autoResizeTextarea(itemDescription);
@@ -1691,19 +1701,70 @@ async function loadItems() {
 
 function syncItemFilterCategoryOptions() {
   const categoryFilter = document.getElementById('item-filter-category');
-  if (!categoryFilter) return;
+  const mobileCategoryFilter = document.getElementById('item-filter-category-mobile');
+  const fillOptions = (selectEl) => {
+    if (!selectEl) return;
+    const previousValue = selectEl.value;
+    selectEl.innerHTML = '<option value="">All Categories</option>';
+    allCategories.forEach((cat) => {
+      const option = document.createElement('option');
+      option.value = cat.id;
+      option.textContent = cat.name;
+      selectEl.appendChild(option);
+    });
+    if (previousValue && Array.from(selectEl.options).some((opt) => opt.value === previousValue)) {
+      selectEl.value = previousValue;
+    }
+  };
+  fillOptions(categoryFilter);
+  fillOptions(mobileCategoryFilter);
+}
 
-  const previousValue = categoryFilter.value;
-  categoryFilter.innerHTML = '<option value="">All Categories</option>';
-  allCategories.forEach((cat) => {
-    const option = document.createElement('option');
-    option.value = cat.id;
-    option.textContent = cat.name;
-    categoryFilter.appendChild(option);
-  });
-  if (previousValue && Array.from(categoryFilter.options).some((opt) => opt.value === previousValue)) {
-    categoryFilter.value = previousValue;
-  }
+function resetItemManagerFilters() {
+  const searchEl = document.getElementById('item-search-input');
+  const categoryEl = document.getElementById('item-filter-category');
+  const stockEl = document.getElementById('item-filter-stock');
+  if (searchEl) searchEl.value = '';
+  if (categoryEl) categoryEl.value = '';
+  if (stockEl) stockEl.value = '';
+  applyItemManagerFilters();
+}
+
+function syncDesktopFiltersToMobile() {
+  const desktopSearch = document.getElementById('item-search-input');
+  const desktopCategory = document.getElementById('item-filter-category');
+  const desktopStock = document.getElementById('item-filter-stock');
+  const mobileSearch = document.getElementById('item-search-input-mobile');
+  const mobileCategory = document.getElementById('item-filter-category-mobile');
+  const mobileStock = document.getElementById('item-filter-stock-mobile');
+
+  if (mobileSearch) mobileSearch.value = desktopSearch?.value || '';
+  if (mobileCategory) mobileCategory.value = desktopCategory?.value || '';
+  if (mobileStock) mobileStock.value = desktopStock?.value || '';
+}
+
+function syncMobileFiltersToDesktop() {
+  const desktopSearch = document.getElementById('item-search-input');
+  const desktopCategory = document.getElementById('item-filter-category');
+  const desktopStock = document.getElementById('item-filter-stock');
+  const mobileSearch = document.getElementById('item-search-input-mobile');
+  const mobileCategory = document.getElementById('item-filter-category-mobile');
+  const mobileStock = document.getElementById('item-filter-stock-mobile');
+
+  if (desktopSearch) desktopSearch.value = mobileSearch?.value || '';
+  if (desktopCategory) desktopCategory.value = mobileCategory?.value || '';
+  if (desktopStock) desktopStock.value = mobileStock?.value || '';
+}
+
+function openItemFilterModal() {
+  syncDesktopFiltersToMobile();
+  const modal = document.getElementById('item-filter-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeItemFilterModal() {
+  const modal = document.getElementById('item-filter-modal');
+  if (modal) modal.style.display = 'none';
 }
 
 function applyItemManagerFilters() {

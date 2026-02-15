@@ -242,8 +242,14 @@
           </div>
         </div>
         <div class="list-section">
-          <h3>All Items</h3>
-          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
+          <div class="item-list-header">
+            <h3>All Items</h3>
+            <button type="button" class="btn btn-secondary item-filter-mobile-trigger" id="item-filter-mobile-open" aria-label="Open item filters" title="Filters">
+              <span aria-hidden="true">⚲</span>
+              <span>Filter</span>
+            </button>
+          </div>
+          <div id="item-filter-row" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
             <input type="text" id="item-search-input" class="form-input" placeholder="Search by name, code, description" style="flex:1; min-width:220px;">
             <select id="item-filter-category" class="form-input" style="width:180px;">
               <option value="">All Categories</option>
@@ -531,6 +537,40 @@
       <div class="modal-actions">
         <button class="btn btn-primary" id="profile-save-btn" type="button">Update</button>
         <button class="btn btn-danger" id="profile-logout-btn" type="button">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="item-filter-modal" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Item Filters</h3>
+        <button class="modal-close-btn" id="item-filter-mobile-close" type="button" aria-label="Close Filter">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Search</label>
+          <input type="text" id="item-search-input-mobile" class="form-input" placeholder="Search by name, code, description">
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="item-filter-category-mobile" class="form-input">
+            <option value="">All Categories</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Stock</label>
+          <select id="item-filter-stock-mobile" class="form-input">
+            <option value="">All Stock</option>
+            <option value="in">In Stock</option>
+            <option value="low">Low Stock (<=10)</option>
+            <option value="out">Out of Stock</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="item-filter-mobile-reset" type="button">Reset</button>
+        <button class="btn btn-primary" id="item-filter-mobile-apply" type="button">Apply</button>
       </div>
     </div>
   </div>

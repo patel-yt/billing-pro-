@@ -388,14 +388,14 @@ app.post('/api/items', (req, res) => {
   try {
     const userId = requiredUserIdFromBody(req, res);
     if (!userId) return;
-    const { itemName, itemPrice, itemCode, categoryId, stockQuantity, description, qrData } = req.body;
+    const { itemName, itemPrice, itemCode, categoryId, stockQuantity, description, qrData, barcodeData } = req.body;
     
     if (!itemName || !itemPrice) {
       return res.status(400).json({ error: 'Item name and price are required' });
     }
     
     const finalItemCode = itemCode || `ITEM-${Date.now()}`;
-    addItem(itemName, itemPrice, finalItemCode, categoryId, stockQuantity, description, qrData || null, userId || null).then(result => {
+    addItem(itemName, itemPrice, finalItemCode, categoryId, stockQuantity, description, qrData || null, barcodeData || null, userId || null).then(result => {
       syncToFirebase(`item/${result}`, () => firebasePut(`items/${result}`, {
         id: result,
         user_id: userId || null,
@@ -406,6 +406,7 @@ app.post('/api/items', (req, res) => {
         stock_quantity: typeof stockQuantity === 'number' ? stockQuantity : 100,
         description: description || '',
         qr_data: qrData || null,
+        barcode_data: barcodeData || null,
         source: 'sqlite-sync'
       }));
       res.json({ success: true, itemId: result, message: 'Item added successfully' });
@@ -463,12 +464,15 @@ app.patch('/api/items/:id/media', (req, res) => {
     const { id } = req.params;
     const userId = requiredUserIdFromBody(req, res);
     if (!userId) return;
-    const { qrData } = req.body;
-    if (!qrData) {
-      return res.status(400).json({ error: 'qrData is required' });
+    const { qrData, barcodeData } = req.body;
+    if (!qrData && !barcodeData) {
+      return res.status(400).json({ error: 'qrData or barcodeData is required' });
     }
-    updateItemMedia(id, qrData, userId || null).then(() => {
-      syncToFirebase(`item-media/${id}`, () => firebasePatch(`items/${id}`, { qr_data: qrData || null }));
+    updateItemMedia(id, qrData || null, barcodeData || null, userId || null).then(() => {
+      syncToFirebase(
+        `item-media/${id}`,
+        () => firebasePatch(`items/${id}`, { qr_data: qrData || null, barcode_data: barcodeData || null })
+      );
       res.json({ success: true });
     });
   } catch (error) {

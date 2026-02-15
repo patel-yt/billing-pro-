@@ -22,9 +22,14 @@ let itemBarcodeModalStream = null;
 let itemBarcodeModalInterval = null;
 let mobileSwipeHandlersBound = false;
 let barcodeSupportNoticeShown = false;
+const barcodeCatalogCache = new Map();
 let currentProfile = null;
 let isProfileEditing = false;
 let dashboardErrorNoticeAt = 0;
+let hardwareScannerBound = false;
+let hardwareScannerBuffer = '';
+let hardwareScannerLastKeyAt = 0;
+let hardwareScannerClearTimer = null;
 const defaultItemNameSuggestions = [
   'Notebook',
   'A4 Notebook',
@@ -789,6 +794,7 @@ function setupMobilePageSwipeNavigation() {
 
 function setupEventListeners() {
   setupMobilePageSwipeNavigation();
+  initHardwareScannerSupport();
 
   // Navigation
   document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -816,8 +822,10 @@ function setupEventListeners() {
       input.value = code;
       const name = document.getElementById('item-name')?.value || '';
       const price = parseFloat(document.getElementById('item-price')?.value || '0') || 0;
+      const description = document.getElementById('item-description')?.value || '';
       const payload = buildItemQrPayload({ code, name, price });
       renderQRCode('item-qr', payload, 180);
+      renderBarcode('item-barcode', buildItemBarcodeValue({ code, name, price, description }), 240, 80);
     }
   });
   document.getElementById('coupon-code')?.addEventListener('input', (e) => {
@@ -832,8 +840,10 @@ function setupEventListeners() {
     if (value) {
       const name = document.getElementById('item-name')?.value || '';
       const price = parseFloat(document.getElementById('item-price')?.value || '0') || 0;
+      const description = document.getElementById('item-description')?.value || '';
       const payload = buildItemQrPayload({ code: value, name, price });
       renderQRCode('item-qr', payload, 180);
+      renderBarcode('item-barcode', buildItemBarcodeValue({ code: value, name, price, description }), 240, 80);
     }
   });
   document.getElementById('item-description')?.addEventListener('input', (e) => autoResizeTextarea(e.target));
@@ -930,6 +940,109 @@ function setupEventListeners() {
   });
 }
 
+function getActivePageId() {
+  const activeNav = document.querySelector('.nav-btn.active');
+  const fromNav = String(activeNav?.dataset?.page || '').trim();
+  if (fromNav) return fromNav;
+
+  const visiblePage = Array.from(document.querySelectorAll('.page')).find((page) => page.style.display !== 'none');
+  return String(visiblePage?.dataset?.page || '').trim();
+}
+
+function shouldIgnoreHardwareScannerTarget(target) {
+  if (!target) return false;
+  const tag = String(target.tagName || '').toLowerCase();
+  if (tag === 'textarea') return true;
+  if (tag === 'input' && String(target.type || '').toLowerCase() === 'password') return true;
+  return false;
+}
+
+async function routeHardwareScannedCode(rawValue) {
+  const value = String(rawValue || '').trim();
+  if (!value) return;
+
+  const pageId = getActivePageId();
+  const upperValue = value.toUpperCase();
+
+  if (pageId === 'item-manager') {
+    await applyScannedItemBarcodeData(value);
+    return;
+  }
+
+  if (pageId === 'coupon-manager') {
+    const input = document.getElementById('coupon-code');
+    if (input) {
+      input.value = upperValue;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      showNotification(`Coupon scanned: ${upperValue}`);
+    }
+    return;
+  }
+
+  if (pageId === 'check-item') {
+    const input = document.getElementById('manual-item-code');
+    if (input) {
+      input.value = value;
+      checkItemManual();
+    }
+    return;
+  }
+
+  if (pageId === 'check-coupon') {
+    const parsed = parseCouponQrPayload(value);
+    const couponCode = String(parsed?.code || value).trim().toUpperCase();
+    const input = document.getElementById('manual-coupon-code');
+    if (input) {
+      input.value = couponCode;
+      validateCouponManual();
+    }
+    return;
+  }
+
+  if (pageId === 'billing') {
+    handleQRResult(value, 'billing');
+    return;
+  }
+}
+
+function initHardwareScannerSupport() {
+  if (hardwareScannerBound) return;
+  hardwareScannerBound = true;
+
+  document.addEventListener('keydown', async (e) => {
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (shouldIgnoreHardwareScannerTarget(e.target)) return;
+
+    const now = Date.now();
+    const isRapid = now - hardwareScannerLastKeyAt < 80;
+    hardwareScannerLastKeyAt = now;
+
+    if (!isRapid) hardwareScannerBuffer = '';
+
+    if (e.key === 'Enter') {
+      const scanned = hardwareScannerBuffer.trim();
+      hardwareScannerBuffer = '';
+      if (hardwareScannerClearTimer) clearTimeout(hardwareScannerClearTimer);
+      hardwareScannerClearTimer = null;
+
+      if (scanned.length >= 4) {
+        e.preventDefault();
+        await routeHardwareScannedCode(scanned);
+      }
+      return;
+    }
+
+    if (e.key.length !== 1) return;
+    hardwareScannerBuffer += e.key;
+
+    if (hardwareScannerClearTimer) clearTimeout(hardwareScannerClearTimer);
+    hardwareScannerClearTimer = setTimeout(() => {
+      hardwareScannerBuffer = '';
+      hardwareScannerClearTimer = null;
+    }, 180);
+  }, true);
+}
+
 // ============ PAGE SWITCHING ============
 
 function switchPage(pageId) {
@@ -1015,6 +1128,10 @@ function buildItemQrPayload(item) {
     price: Number(item.item_price || item.price || 0)
   };
   return JSON.stringify(payload);
+}
+
+function buildItemBarcodeValue(item) {
+  return String(item?.item_code || item?.code || '').trim();
 }
 
 function parseItemQrPayload(raw) {
@@ -1140,7 +1257,48 @@ function parseBarcodeProductPayload(raw) {
   return result;
 }
 
-function applyScannedItemBarcodeData(scannedRaw) {
+function normalizeCatalogPrice(value) {
+  const parsed = Number(String(value ?? '').replace(/[^\d.]/g, ''));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+async function fetchBarcodeProductInfo(code) {
+  const cleanedCode = String(code || '').trim();
+  if (!cleanedCode) return null;
+  if (barcodeCatalogCache.has(cleanedCode)) return barcodeCatalogCache.get(cleanedCode);
+
+  const withTimeout = async (url, timeoutMs = 3500) => {
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+    try {
+      const response = await fetch(url, { signal: ctrl?.signal });
+      if (!response.ok) return null;
+      return response.json();
+    } catch (e) {
+      return null;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+
+  // Public catalog lookup (best effort): often provides name/brand/category, price may be unavailable.
+  const off = await withTimeout(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(cleanedCode)}.json`);
+  if (off && off.status === 1 && off.product) {
+    const p = off.product;
+    const result = {
+      name: String(p.product_name || p.product_name_en || p.generic_name || '').trim(),
+      price: normalizeCatalogPrice(p.price || p.price_value || p.suggested_retail_price),
+      description: String(p.brands || p.categories || p.quantity || '').trim()
+    };
+    barcodeCatalogCache.set(cleanedCode, result);
+    return result;
+  }
+
+  barcodeCatalogCache.set(cleanedCode, null);
+  return null;
+}
+
+async function applyScannedItemBarcodeData(scannedRaw) {
   const raw = String(scannedRaw || '').trim();
   if (!raw) return;
 
@@ -1151,16 +1309,37 @@ function applyScannedItemBarcodeData(scannedRaw) {
   const itemDescInput = document.getElementById('item-description');
 
   const scannedCode = String(parsed.code || '').trim();
-  if (itemCodeInput && (scannedCode || (!raw.startsWith('{') && !raw.startsWith('[')))) {
-    itemCodeInput.value = scannedCode || raw;
+  const fallbackCode = (!raw.startsWith('{') && !raw.startsWith('[')) ? raw : '';
+  const finalCode = scannedCode || fallbackCode;
+  const matchedItem = finalCode ? itemLookupByCode.get(finalCode.toUpperCase()) : null;
+
+  if (itemCodeInput && finalCode) {
+    itemCodeInput.value = finalCode;
+    itemCodeInput.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  if (itemNameInput && parsed.name) itemNameInput.value = parsed.name;
-  if (itemPriceInput && parsed.price) itemPriceInput.value = String(parsed.price);
-  if (itemDescInput && parsed.description) itemDescInput.value = parsed.description;
+  let resolvedName = parsed.name || matchedItem?.item_name || '';
+  let resolvedPrice = parsed.price || Number(matchedItem?.item_price || 0) || null;
+  let resolvedDesc = parsed.description || matchedItem?.description || '';
 
-  const previewName = parsed.name || itemNameInput?.value || 'Item details scanned';
-  const previewPrice = parsed.price ? ` | Price: ${parsed.price}` : '';
+  if (finalCode && (!resolvedName || !resolvedPrice || !resolvedDesc)) {
+    const remote = await fetchBarcodeProductInfo(finalCode);
+    if (remote) {
+      if (!resolvedName && remote.name) resolvedName = remote.name;
+      if (!resolvedPrice && remote.price) resolvedPrice = remote.price;
+      if (!resolvedDesc && remote.description) resolvedDesc = remote.description;
+    }
+  }
+
+  if (itemNameInput && resolvedName) itemNameInput.value = resolvedName;
+  if (itemPriceInput && resolvedPrice) itemPriceInput.value = String(resolvedPrice);
+  if (itemDescInput && resolvedDesc) {
+    itemDescInput.value = resolvedDesc;
+    autoResizeTextarea(itemDescInput);
+  }
+
+  const previewName = resolvedName || itemNameInput?.value || 'Item details scanned';
+  const previewPrice = resolvedPrice ? ` | Price: ${resolvedPrice}` : '';
   showNotification(`Scanned: ${previewName}${previewPrice}`);
 }
 function parseCouponQrPayload(raw) {
@@ -1426,6 +1605,14 @@ async function handleAddItem(e) {
   try {
     const payload = buildItemQrPayload({ item_code: itemCode, item_name: itemName, item_price: itemPrice });
     const qrData = await generateQrDataUrl(payload);
+    await ensureBarcodeLibrary();
+    const barcodeValue = buildItemBarcodeValue({
+      item_code: itemCode,
+      item_name: itemName,
+      item_price: itemPrice,
+      description
+    });
+    const barcodeData = generateBarcodeDataUrl(barcodeValue);
     const userId = currentUser?.id || null;
     const response = await fetch(`${API_BASE}/items`, {
       method: 'POST',
@@ -1438,7 +1625,8 @@ async function handleAddItem(e) {
         categoryId,
         stockQuantity,
         description,
-        qrData
+        qrData,
+        barcodeData
       })
     });
 
@@ -1449,6 +1637,7 @@ async function handleAddItem(e) {
     alert(' Item added successfully!');
     document.getElementById('item-form').reset();
     renderQRCode('item-qr', payload);
+    renderBarcode('item-barcode', barcodeValue, 240, 80);
     loadItems();
     loadItemSelect();
   } catch (error) {
@@ -1492,6 +1681,7 @@ async function loadItems() {
         </div>
         <div class="list-item-media">
           <img id="item-qr-img-${item.id}" alt="QR" />
+          <img id="item-barcode-img-${item.id}" alt="Barcode" />
         </div>
         <div class="list-item-actions">
           <button class="btn btn-danger" onclick="deleteItemFunc('${item.id}')">Delete</button>
@@ -1500,15 +1690,19 @@ async function loadItems() {
       itemsList.appendChild(element);
 
       const qrImg = document.getElementById(`item-qr-img-${item.id}`);
+      const barcodeImg = document.getElementById(`item-barcode-img-${item.id}`);
       if (item.qr_data && qrImg) qrImg.src = item.qr_data;
-      if (!item.qr_data && item.item_code) {
+      if (item.barcode_data && barcodeImg) barcodeImg.src = item.barcode_data;
+      if ((!item.qr_data || !item.barcode_data) && item.item_code) {
         const payload = buildItemQrPayload(item);
-        generateQrDataUrl(payload).then((qrData) => {
+        const barcodeValue = buildItemBarcodeValue(item);
+        Promise.all([generateQrDataUrl(payload), Promise.resolve(generateBarcodeDataUrl(barcodeValue))]).then(([qrData, barcodeData]) => {
           if (qrData && qrImg) qrImg.src = qrData;
+          if (barcodeData && barcodeImg) barcodeImg.src = barcodeData;
           fetch(`${API_BASE}/items/${item.id}/media`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: currentUser?.id || null, qrData })
+            body: JSON.stringify({ userId: currentUser?.id || null, qrData, barcodeData })
           }).catch(() => {});
         });
       }
@@ -1998,7 +2192,10 @@ function renderQRCode(targetId, text, size = 180) {
 function renderBarcode(targetId, text, width = 240, height = 80) {
   const container = document.getElementById(targetId);
   if (!container || !text) return;
-  if (typeof JsBarcode === 'undefined') return;
+  if (typeof JsBarcode === 'undefined') {
+    ensureBarcodeLibrary().then(() => renderBarcode(targetId, text, width, height));
+    return;
+  }
 
   container.innerHTML = '';
   const canvas = document.createElement('canvas');
@@ -2045,6 +2242,7 @@ function generateBarcodeDataUrl(text) {
 }
 
 async function generateCouponMedia(text) {
+  await ensureBarcodeLibrary();
   const [qrData, barcodeData] = await Promise.all([
     generateQrDataUrl(text),
     Promise.resolve(generateBarcodeDataUrl(text))
@@ -2067,6 +2265,44 @@ function ensureQrLibrary() {
     script.onload = () => resolve();
     script.onerror = () => resolve();
     document.head.appendChild(script);
+  });
+}
+
+function ensureBarcodeLibrary() {
+  return new Promise((resolve) => {
+    if (typeof JsBarcode !== 'undefined') return resolve();
+
+    const scriptId = 'barcode-lib-fallback';
+    const existing = document.getElementById(scriptId);
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => resolve());
+      return;
+    }
+
+    const sources = [
+      'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js',
+      'https://unpkg.com/jsbarcode@3.11.5/dist/JsBarcode.all.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js'
+    ];
+
+    let index = 0;
+    const tryNext = () => {
+      if (typeof JsBarcode !== 'undefined') return resolve();
+      if (index >= sources.length) return resolve();
+
+      const script = document.createElement('script');
+      script.id = index === 0 ? scriptId : `${scriptId}-${index}`;
+      script.src = sources[index++];
+      script.onload = () => {
+        if (typeof JsBarcode !== 'undefined') resolve();
+        else tryNext();
+      };
+      script.onerror = () => tryNext();
+      document.head.appendChild(script);
+    };
+
+    tryNext();
   });
 }
 
@@ -2780,7 +3016,7 @@ async function startItemBarcodeScannerModal() {
       const normalized = String(codeData || '').trim();
       if (!normalized) return;
 
-      applyScannedItemBarcodeData(normalized);
+      await applyScannedItemBarcodeData(normalized);
       closeItemBarcodeScannerModal();
     }, SCAN_INTERVAL_MS);
   } catch (error) {

@@ -98,12 +98,14 @@ function initializeDatabase() {
         description TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         qr_data TEXT,
+        barcode_data TEXT,
         FOREIGN KEY(user_id) REFERENCES users(id),
         FOREIGN KEY(category_id) REFERENCES categories(id)
       )
     `);
     db.run(`ALTER TABLE items ADD COLUMN user_id TEXT`, () => {});
     db.run(`ALTER TABLE items ADD COLUMN qr_data TEXT`, () => {});
+    db.run(`ALTER TABLE items ADD COLUMN barcode_data TEXT`, () => {});
 
     // Bills Table
     db.run(`
@@ -434,12 +436,12 @@ function updateCouponMedia(couponId, qrData, barcodeData, userId = null) {
 
 // ============ ITEM FUNCTIONS ============
 
-function addItem(itemName, itemPrice, itemCode, categoryId = null, stockQuantity = 100, description = '', qrData = null, userId = null) {
+function addItem(itemName, itemPrice, itemCode, categoryId = null, stockQuantity = 100, description = '', qrData = null, barcodeData = null, userId = null) {
   return new Promise((resolve, reject) => {
     const id = uuidv4();
     db.run(
-      `INSERT INTO items (id, user_id, item_name, item_price, item_code, category_id, stock_quantity, description, qr_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, userId, itemName, itemPrice, itemCode, categoryId, stockQuantity, description, qrData],
+      `INSERT INTO items (id, user_id, item_name, item_price, item_code, category_id, stock_quantity, description, qr_data, barcode_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, userId, itemName, itemPrice, itemCode, categoryId, stockQuantity, description, qrData, barcodeData],
       function(err) {
         if (err) reject(err);
         else resolve(id);
@@ -495,12 +497,12 @@ function deleteItem(itemId, userId = null) {
   });
 }
 
-function updateItemMedia(itemId, qrData, userId = null) {
+function updateItemMedia(itemId, qrData, barcodeData, userId = null) {
   return new Promise((resolve, reject) => {
     const sql = userId
-      ? `UPDATE items SET qr_data = ? WHERE id = ? AND user_id = ?`
-      : `UPDATE items SET qr_data = ? WHERE id = ?`;
-    const params = userId ? [qrData, itemId, userId] : [qrData, itemId];
+      ? `UPDATE items SET qr_data = ?, barcode_data = ? WHERE id = ? AND user_id = ?`
+      : `UPDATE items SET qr_data = ?, barcode_data = ? WHERE id = ?`;
+    const params = userId ? [qrData, barcodeData, itemId, userId] : [qrData, barcodeData, itemId];
     db.run(
       sql,
       params,

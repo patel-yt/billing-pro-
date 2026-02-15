@@ -1285,6 +1285,16 @@ function normalizeCatalogPrice(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function getBarcodeLookupCandidates(code) {
+  const raw = String(code || '').trim();
+  const digits = raw.replace(/\D/g, '');
+  const normalizedDigits = digits.replace(/^0+/, '');
+  const candidates = [raw, digits, normalizedDigits]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+  return Array.from(new Set(candidates));
+}
+
 async function fetchBarcodeProductInfo(code) {
   const cleanedCode = String(code || '').trim();
   if (!cleanedCode) return null;
@@ -1304,17 +1314,35 @@ async function fetchBarcodeProductInfo(code) {
     }
   };
 
-  // Public catalog lookup (best effort): often provides name/brand/category, price may be unavailable.
-  const off = await withTimeout(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(cleanedCode)}.json`);
-  if (off && off.status === 1 && off.product) {
-    const p = off.product;
+  const parseFactsResponse = (data) => {
+    if (!data || data.status !== 1 || !data.product) return null;
+    const p = data.product;
     const result = {
       name: String(p.product_name || p.product_name_en || p.generic_name || '').trim(),
       price: normalizeCatalogPrice(p.price || p.price_value || p.suggested_retail_price),
       description: String(p.brands || p.categories || p.quantity || '').trim()
     };
-    barcodeCatalogCache.set(cleanedCode, result);
+    if (!result.name && !result.price && !result.description) return null;
     return result;
+  };
+
+  const hosts = [
+    'world.openfoodfacts.org',
+    'world.openbeautyfacts.org',
+    'world.openpetfoodfacts.org',
+    'world.openproductsfacts.org'
+  ];
+
+  const candidates = getBarcodeLookupCandidates(cleanedCode);
+  for (const candidate of candidates) {
+    for (const host of hosts) {
+      const off = await withTimeout(`https://${host}/api/v2/product/${encodeURIComponent(candidate)}.json`);
+      const parsed = parseFactsResponse(off);
+      if (parsed) {
+        barcodeCatalogCache.set(cleanedCode, parsed);
+        return parsed;
+      }
+    }
   }
 
   barcodeCatalogCache.set(cleanedCode, null);

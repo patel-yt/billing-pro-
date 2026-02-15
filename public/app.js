@@ -1035,22 +1035,42 @@ function parseBarcodeProductPayload(raw) {
   const input = String(raw || '').trim();
   if (!input) return { code: '', name: '', price: null, description: '' };
 
-  const fromObject = (obj) => {
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  const normalizeKey = (key) => String(key || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+  const aliases = {
+    code: ['code', 'itemcode', 'barcode', 'barcodevalue', 'upc', 'ean', 'sku', 'id', 'gtin'],
+    name: ['name', 'itemname', 'productname', 'product', 'title'],
+    description: ['description', 'desc', 'itemdescription', 'details', 'about'],
+    price: ['price', 'itemprice', 'mrp', 'amount', 'saleprice', 'rate', 'cost']
+  };
 
-    const findValue = (keys) => {
-      for (const key of keys) {
-        if (obj[key] !== undefined && obj[key] !== null && String(obj[key]).trim() !== '') {
-          return String(obj[key]).trim();
-        }
+  const findValueDeep = (obj, keyList) => {
+    const wanted = new Set(keyList.map(normalizeKey));
+    const queue = [obj];
+    while (queue.length > 0) {
+      const node = queue.shift();
+      if (!node || typeof node !== 'object') continue;
+      if (Array.isArray(node)) {
+        queue.push(...node);
+        continue;
       }
-      return '';
-    };
+      for (const [k, v] of Object.entries(node)) {
+        const nk = normalizeKey(k);
+        if (wanted.has(nk) && v !== undefined && v !== null && String(v).trim() !== '') {
+          return String(v).trim();
+        }
+        if (v && typeof v === 'object') queue.push(v);
+      }
+    }
+    return '';
+  };
 
-    const code = findValue(['code', 'item_code', 'itemCode', 'barcode', 'bar_code', 'upc', 'ean', 'sku', 'id']);
-    const name = findValue(['name', 'item_name', 'itemName', 'product_name', 'productName', 'title']);
-    const description = findValue(['description', 'desc', 'item_description', 'details']);
-    const priceRaw = findValue(['price', 'item_price', 'mrp', 'amount', 'salePrice', 'sale_price']);
+  const fromObject = (obj) => {
+    if (!obj || typeof obj !== 'object') return null;
+
+    const code = findValueDeep(obj, aliases.code);
+    const name = findValueDeep(obj, aliases.name);
+    const description = findValueDeep(obj, aliases.description);
+    const priceRaw = findValueDeep(obj, aliases.price);
     const normalizedPrice = Number(String(priceRaw || '').replace(/[^\d.]/g, ''));
     const price = Number.isFinite(normalizedPrice) && normalizedPrice > 0 ? normalizedPrice : null;
 
@@ -1067,21 +1087,45 @@ function parseBarcodeProductPayload(raw) {
     // not JSON payload
   }
 
+  // URL payload support: ?name=...&price=...&description=...&code=...
+  try {
+    if (/^https?:\/\//i.test(input)) {
+      const url = new URL(input);
+      const paramsObj = {};
+      url.searchParams.forEach((value, key) => {
+        paramsObj[key] = value;
+      });
+      const fromParams = fromObject(paramsObj) || { code: '', name: '', price: null, description: '' };
+      if (!fromParams.code) {
+        const pathToken = url.pathname.split('/').filter(Boolean).pop();
+        if (pathToken && /^[-A-Za-z0-9]{6,}$/.test(pathToken)) {
+          fromParams.code = pathToken;
+        }
+      }
+      if (fromParams.code || fromParams.name || fromParams.price || fromParams.description) {
+        return fromParams;
+      }
+    }
+  } catch (e) {
+    // not URL
+  }
+
   const result = { code: '', name: '', price: null, description: '' };
-  const parts = input.split(/[\n;|]+/).map((part) => part.trim()).filter(Boolean);
+  const parts = input.split(/[\n;|,&]+/).map((part) => part.trim()).filter(Boolean);
   for (const part of parts) {
-    const splitIndex = part.indexOf(':');
+    let splitIndex = part.indexOf(':');
+    if (splitIndex < 0) splitIndex = part.indexOf('=');
     if (splitIndex < 0) continue;
-    const key = part.slice(0, splitIndex).trim().toLowerCase();
+    const key = normalizeKey(part.slice(0, splitIndex));
     const value = part.slice(splitIndex + 1).trim();
     if (!value) continue;
 
-    if (['code', 'item code', 'barcode', 'upc', 'ean', 'sku', 'id'].includes(key)) result.code = value;
-    else if (['name', 'item', 'item name', 'product', 'product name', 'title'].includes(key)) result.name = value;
-    else if (['price', 'mrp', 'amount', 'rate'].includes(key)) {
+    if (aliases.code.includes(key)) result.code = value;
+    else if (aliases.name.includes(key)) result.name = value;
+    else if (aliases.price.includes(key)) {
       const parsedPrice = Number(value.replace(/[^\d.]/g, ''));
       if (Number.isFinite(parsedPrice) && parsedPrice > 0) result.price = parsedPrice;
-    } else if (['description', 'desc', 'details'].includes(key)) {
+    } else if (aliases.description.includes(key)) {
       result.description = value;
     }
   }

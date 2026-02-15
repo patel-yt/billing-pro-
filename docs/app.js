@@ -18,6 +18,8 @@ let billingCouponModalInterval = null;
 let billingCouponModalTrack = null;
 let billingCouponTorchEnabled = false;
 let billingCouponTorchSupported = false;
+let itemBarcodeModalStream = null;
+let itemBarcodeModalInterval = null;
 let mobileSwipeHandlersBound = false;
 let barcodeSupportNoticeShown = false;
 let currentProfile = null;
@@ -835,6 +837,11 @@ function setupEventListeners() {
     }
   });
 
+  document.getElementById('scan-item-barcode-btn')?.addEventListener('click', openItemBarcodeScannerModal);
+  document.getElementById('item-barcode-scan-close')?.addEventListener('click', closeItemBarcodeScannerModal);
+  document.getElementById('item-barcode-scan-modal')?.addEventListener('click', (e) => {
+    if (e.target?.id === 'item-barcode-scan-modal') closeItemBarcodeScannerModal();
+  });
   document.getElementById('billing-coupon-scan')?.addEventListener('click', openBillingCouponScannerModal);
   document.getElementById('billing-coupon-scan-torch')?.addEventListener('click', toggleBillingCouponTorch);
   document.getElementById('billing-coupon-scan-close')?.addEventListener('click', closeBillingCouponScannerModal);
@@ -926,6 +933,7 @@ function switchPage(pageId) {
   // Release any active camera stream while navigating between pages.
   stopScanning();
   closeBillingCouponScannerModal();
+  closeItemBarcodeScannerModal();
 
   document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelector(`[data-page="${pageId}"]`).classList.add('active');
@@ -1022,6 +1030,92 @@ function parseItemQrPayload(raw) {
   return null;
 }
 
+
+function parseBarcodeProductPayload(raw) {
+  const input = String(raw || '').trim();
+  if (!input) return { code: '', name: '', price: null, description: '' };
+
+  const fromObject = (obj) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+
+    const findValue = (keys) => {
+      for (const key of keys) {
+        if (obj[key] !== undefined && obj[key] !== null && String(obj[key]).trim() !== '') {
+          return String(obj[key]).trim();
+        }
+      }
+      return '';
+    };
+
+    const code = findValue(['code', 'item_code', 'itemCode', 'barcode', 'bar_code', 'upc', 'ean', 'sku', 'id']);
+    const name = findValue(['name', 'item_name', 'itemName', 'product_name', 'productName', 'title']);
+    const description = findValue(['description', 'desc', 'item_description', 'details']);
+    const priceRaw = findValue(['price', 'item_price', 'mrp', 'amount', 'salePrice', 'sale_price']);
+    const normalizedPrice = Number(String(priceRaw || '').replace(/[^\d.]/g, ''));
+    const price = Number.isFinite(normalizedPrice) && normalizedPrice > 0 ? normalizedPrice : null;
+
+    return { code, name, price, description };
+  };
+
+  try {
+    const parsedJson = JSON.parse(input);
+    const parsed = fromObject(parsedJson);
+    if (parsed && (parsed.code || parsed.name || parsed.price || parsed.description)) {
+      return parsed;
+    }
+  } catch (e) {
+    // not JSON payload
+  }
+
+  const result = { code: '', name: '', price: null, description: '' };
+  const parts = input.split(/[\n;|]+/).map((part) => part.trim()).filter(Boolean);
+  for (const part of parts) {
+    const splitIndex = part.indexOf(':');
+    if (splitIndex < 0) continue;
+    const key = part.slice(0, splitIndex).trim().toLowerCase();
+    const value = part.slice(splitIndex + 1).trim();
+    if (!value) continue;
+
+    if (['code', 'item code', 'barcode', 'upc', 'ean', 'sku', 'id'].includes(key)) result.code = value;
+    else if (['name', 'item', 'item name', 'product', 'product name', 'title'].includes(key)) result.name = value;
+    else if (['price', 'mrp', 'amount', 'rate'].includes(key)) {
+      const parsedPrice = Number(value.replace(/[^\d.]/g, ''));
+      if (Number.isFinite(parsedPrice) && parsedPrice > 0) result.price = parsedPrice;
+    } else if (['description', 'desc', 'details'].includes(key)) {
+      result.description = value;
+    }
+  }
+
+  if (!result.code && /^[-A-Za-z0-9]{6,}$/.test(input)) {
+    result.code = input;
+  }
+
+  return result;
+}
+
+function applyScannedItemBarcodeData(scannedRaw) {
+  const raw = String(scannedRaw || '').trim();
+  if (!raw) return;
+
+  const parsed = parseBarcodeProductPayload(raw);
+  const itemCodeInput = document.getElementById('item-code');
+  const itemNameInput = document.getElementById('item-name');
+  const itemPriceInput = document.getElementById('item-price');
+  const itemDescInput = document.getElementById('item-description');
+
+  const scannedCode = String(parsed.code || '').trim();
+  if (itemCodeInput && (scannedCode || (!raw.startsWith('{') && !raw.startsWith('[')))) {
+    itemCodeInput.value = scannedCode || raw;
+  }
+
+  if (itemNameInput && parsed.name) itemNameInput.value = parsed.name;
+  if (itemPriceInput && parsed.price) itemPriceInput.value = String(parsed.price);
+  if (itemDescInput && parsed.description) itemDescInput.value = parsed.description;
+
+  const previewName = parsed.name || itemNameInput?.value || 'Item details scanned';
+  const previewPrice = parsed.price ? ` | Price: ${parsed.price}` : '';
+  showNotification(`Scanned: ${previewName}${previewPrice}`);
+}
 function parseCouponQrPayload(raw) {
   try {
     const obj = JSON.parse(raw);
@@ -2499,6 +2593,168 @@ function openBillingCouponScannerModal() {
   startBillingCouponScannerModal();
 }
 
+
+function stopItemBarcodeScannerModalStream() {
+  if (itemBarcodeModalInterval) {
+    clearInterval(itemBarcodeModalInterval);
+    itemBarcodeModalInterval = null;
+  }
+
+  if (itemBarcodeModalStream) {
+    itemBarcodeModalStream.getTracks().forEach((track) => track.stop());
+    itemBarcodeModalStream = null;
+  }
+
+  const video = document.getElementById('item-barcode-modal-video');
+  if (video) {
+    video.pause?.();
+    video.srcObject = null;
+  }
+}
+
+function closeItemBarcodeScannerModal() {
+  stopItemBarcodeScannerModalStream();
+  const modal = document.getElementById('item-barcode-scan-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function startItemBarcodeScannerModal() {
+  const video = document.getElementById('item-barcode-modal-video');
+  const canvas = document.getElementById('item-barcode-modal-canvas');
+  const status = document.getElementById('item-barcode-modal-status');
+  if (!video || !canvas) {
+    showNotification('Item barcode scanner UI not found', 'error');
+    return;
+  }
+
+  const setStatus = (text) => {
+    if (status) status.textContent = text;
+  };
+
+  stopItemBarcodeScannerModalStream();
+  setStatus('Starting camera...');
+
+  try {
+    const hostname = window.location.hostname || '';
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+    const secureOk = window.isSecureContext || isLocalhost;
+    if (!secureOk) {
+      const secureErr = new Error('Camera requires HTTPS on mobile browsers. Open this app with HTTPS or localhost.');
+      secureErr.name = 'NotSecureContextError';
+      throw secureErr;
+    }
+
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      throw new Error('Camera API unavailable. Use latest Chrome and open app on HTTPS.');
+    }
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+    } catch (primaryError) {
+      if (['OverconstrainedError', 'NotFoundError', 'NotReadableError'].includes(primaryError.name)) {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      } else {
+        throw primaryError;
+      }
+    }
+
+    itemBarcodeModalStream = stream;
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('autoplay', 'true');
+    video.muted = true;
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+    setStatus('Scanning barcode...');
+
+    const detector = (typeof BarcodeDetector !== 'undefined')
+      ? new BarcodeDetector({
+          formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'itf', 'codabar']
+        })
+      : null;
+
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    let scanBusy = false;
+    let lastAttempt = 0;
+    const SCAN_INTERVAL_MS = 100;
+
+    itemBarcodeModalInterval = setInterval(async () => {
+      if (scanBusy || !itemBarcodeModalStream) return;
+
+      const now = Date.now();
+      if (now - lastAttempt < SCAN_INTERVAL_MS) return;
+      lastAttempt = now;
+
+      if (!video.videoWidth || !video.videoHeight) return;
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+
+      scanBusy = true;
+      let codeData = null;
+
+      try {
+        if (detector) {
+          const barcodes = await detector.detect(video);
+          if (barcodes && barcodes.length > 0) {
+            codeData = barcodes[0].rawValue || barcodes[0].data;
+          }
+        }
+
+        if (!codeData && typeof jsQR === 'function') {
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const qr = jsQR(imageData.data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
+          if (qr?.data) codeData = qr.data;
+        }
+      } catch (e) {
+        // keep scanning on transient errors
+      } finally {
+        scanBusy = false;
+      }
+
+      if (!codeData) return;
+
+      const normalized = String(codeData || '').trim();
+      if (!normalized) return;
+
+      applyScannedItemBarcodeData(normalized);
+      closeItemBarcodeScannerModal();
+    }, SCAN_INTERVAL_MS);
+  } catch (error) {
+    console.error('Item barcode scanner error:', error);
+    let errorMsg = `Camera error: ${error.message}`;
+    if (error.name === 'NotAllowedError') {
+      errorMsg = 'Camera permission denied. Allow camera permission in browser settings.';
+    } else if (error.name === 'NotSecureContextError') {
+      errorMsg = 'Camera blocked on insecure URL. Use HTTPS URL (or localhost) instead of http://IP:port.';
+    } else if (error.name === 'NotFoundError') {
+      errorMsg = 'No camera detected on this device.';
+    }
+    setStatus(errorMsg);
+    showNotification(errorMsg, 'error');
+  }
+}
+
+function openItemBarcodeScannerModal() {
+  const modal = document.getElementById('item-barcode-scan-modal');
+  if (!modal) {
+    showNotification('Item barcode scanner modal not found', 'error');
+    return;
+  }
+
+  stopScanning();
+  modal.style.display = 'flex';
+  startItemBarcodeScannerModal();
+}
 async function startScanning(type) {
   let videoElement, canvasElement, startBtn, stopBtn;
 
@@ -2720,6 +2976,7 @@ function stopScanning() {
   stopScannerStream('item-qr-video', 'start-item-scan', 'stop-item-scan');
   stopScannerStream('billing-qr-video', 'start-billing-scan', 'stop-billing-scan');
   stopBillingCouponScannerModalStream();
+  stopItemBarcodeScannerModalStream();
 }
 
 function handleQRResult(data, type) {
@@ -3382,4 +3639,5 @@ function printReceipt() {
     printWindow.close();
   }, 250);
 }
+
 

@@ -790,6 +790,38 @@ body.dark-mode .bill-preview-close {
   flex: 1;
 }
 
+.item-code-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.item-code-input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.item-scan-icon-btn {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-scan-icon-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .checkout-buttons {
   display: flex;
   gap: 10px;

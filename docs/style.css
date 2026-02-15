@@ -791,23 +791,20 @@ body.dark-mode .bill-preview-close {
 }
 
 .item-code-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  display: block;
 }
 
 .item-code-primary {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
   width: 100%;
 }
 
 .item-code-input {
-  flex: 1;
-  min-width: 180px;
+  min-width: 0;
+  margin-bottom: 0;
 }
 
 .item-scan-icon-btn {
@@ -832,7 +829,8 @@ body.dark-mode .bill-preview-close {
 
 @media (max-width: 768px) {
   .item-code-primary {
-    flex-wrap: wrap;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
   }
 }
 

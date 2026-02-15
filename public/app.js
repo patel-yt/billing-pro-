@@ -852,7 +852,7 @@ function setupEventListeners() {
   document.getElementById('item-filter-category')?.addEventListener('change', applyItemManagerFilters);
   document.getElementById('item-filter-stock')?.addEventListener('change', applyItemManagerFilters);
   document.getElementById('item-filter-reset')?.addEventListener('click', resetItemManagerFilters);
-  document.getElementById('item-filter-mobile-open')?.addEventListener('click', openItemFilterModal);
+  document.getElementById('item-filter-mobile-open-inline')?.addEventListener('click', openItemFilterModal);
   document.getElementById('item-filter-mobile-close')?.addEventListener('click', closeItemFilterModal);
   document.getElementById('item-filter-mobile-reset')?.addEventListener('click', () => {
     const mobileSearch = document.getElementById('item-search-input-mobile');

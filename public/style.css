@@ -3211,19 +3211,40 @@ body.dark-mode .coupon-scan-modal-status {
   gap: 10px;
 }
 
-.item-filter-mobile-trigger {
+.item-filter-mobile-trigger-inline {
   display: none;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
   align-items: center;
-  gap: 6px;
-  min-height: 38px;
+  justify-content: center;
+}
+
+.item-filter-mobile-trigger-inline svg {
+  width: 18px;
+  height: 18px;
 }
 
 @media (max-width: 768px) {
-  .item-filter-mobile-trigger {
-    display: inline-flex;
+  #item-filter-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
   }
 
-  #item-filter-row {
+  #item-filter-row #item-search-input {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  #item-filter-row #item-filter-category,
+  #item-filter-row #item-filter-stock,
+  #item-filter-row #item-filter-reset {
     display: none !important;
+  }
+
+  .item-filter-mobile-trigger-inline {
+    display: inline-flex;
   }
 }

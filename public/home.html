@@ -243,15 +243,14 @@
         </div>
         <div class="list-section">
           <div class="item-list-header">
-            <h3>All Items</h3>
-            <button type="button" class="btn btn-secondary item-filter-mobile-trigger" id="item-filter-mobile-open" aria-label="Open item filters" title="Filters">
-              <span aria-hidden="true">⚲</span>
-              <span>Filter</span>
-            </button>
-          </div>
+            <h3>All Items</h3>`r`n          </div>
           <div id="item-filter-row" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
             <input type="text" id="item-search-input" class="form-input" placeholder="Search by name, code, description" style="flex:1; min-width:220px;">
-            <select id="item-filter-category" class="form-input" style="width:180px;">
+            <button type="button" class="btn btn-secondary item-filter-mobile-trigger-inline" id="item-filter-mobile-open-inline" aria-label="Open item filters" title="Filters">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3 6h18M6 12h12M10 18h4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"></path>
+              </svg>
+            </button>            <select id="item-filter-category" class="form-input" style="width:180px;">
               <option value="">All Categories</option>
             </select>
             <select id="item-filter-stock" class="form-input" style="width:170px;">
@@ -613,3 +612,5 @@
   <script src="/app.js"></script>
 </body>
 </html>
+
+

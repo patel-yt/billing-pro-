@@ -243,6 +243,19 @@
         </div>
         <div class="list-section">
           <h3>All Items</h3>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
+            <input type="text" id="item-search-input" class="form-input" placeholder="Search by name, code, description" style="flex:1; min-width:220px;">
+            <select id="item-filter-category" class="form-input" style="width:180px;">
+              <option value="">All Categories</option>
+            </select>
+            <select id="item-filter-stock" class="form-input" style="width:170px;">
+              <option value="">All Stock</option>
+              <option value="in">In Stock</option>
+              <option value="low">Low Stock (<=10)</option>
+              <option value="out">Out of Stock</option>
+            </select>
+            <button type="button" class="btn btn-secondary" id="item-filter-reset">Reset</button>
+          </div>
           <div id="items-list" class="list"></div>
         </div>
       </section>

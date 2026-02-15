@@ -9,6 +9,7 @@ let couponLookupByCode = new Map();
 let itemLookupByCode = new Map();
 let itemLookupByName = new Map();
 let allCategories = [];
+let itemMediaBackfillAttempted = new Set();
 let appSettings = {};
 let chartInstances = {};
 let appliedCouponData = null;
@@ -847,6 +848,18 @@ function setupEventListeners() {
     }
   });
   document.getElementById('item-description')?.addEventListener('input', (e) => autoResizeTextarea(e.target));
+  document.getElementById('item-search-input')?.addEventListener('input', applyItemManagerFilters);
+  document.getElementById('item-filter-category')?.addEventListener('change', applyItemManagerFilters);
+  document.getElementById('item-filter-stock')?.addEventListener('change', applyItemManagerFilters);
+  document.getElementById('item-filter-reset')?.addEventListener('click', () => {
+    const searchEl = document.getElementById('item-search-input');
+    const categoryEl = document.getElementById('item-filter-category');
+    const stockEl = document.getElementById('item-filter-stock');
+    if (searchEl) searchEl.value = '';
+    if (categoryEl) categoryEl.value = '';
+    if (stockEl) stockEl.value = '';
+    applyItemManagerFilters();
+  });
   const itemDescription = document.getElementById('item-description');
   if (itemDescription) autoResizeTextarea(itemDescription);
 
@@ -1651,66 +1664,22 @@ async function loadItems() {
     const response = await fetch(`${API_BASE}/items?userId=${userId}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     const items = await response.json();
-    
-    const itemsList = document.getElementById('items-list');
-    itemsList.innerHTML = '';
 
     if (!items || items.length === 0) {
-      itemsList.innerHTML = '<p style="text-align:center; color:#6b7280;">No items found</p>';
+      const itemsList = document.getElementById('items-list');
+      if (itemsList) itemsList.innerHTML = '<p style="text-align:center; color:#6b7280;">No items found</p>';
       allItems = [];
       rebuildCodeLookupMaps();
       updateCodeSuggestions();
+      syncItemFilterCategoryOptions();
       return;
     }
-
-    items.forEach(item => {
-      const stockWarning = item.stock_quantity <= 10 ? ' Low Stock' : ' In Stock';
-      const category = allCategories.find(c => c.id === item.category_id);
-      const categoryName = category?.name || 'Uncategorized';
-      
-      const element = document.createElement('div');
-      element.className = 'list-item';
-      element.innerHTML = `
-        <div class="list-item-content">
-          <h4> ${item.item_name}</h4>
-          <p>Price: <strong>${item.item_price}</strong></p>
-          <p>Code: <strong>${item.item_code}</strong></p>
-          <p>Category: <strong>${categoryName}</strong></p>
-          <p>Stock: <strong>${item.stock_quantity}</strong> ${stockWarning}</p>
-          ${item.description ? `<p>Description: ${item.description}</p>` : ''}
-        </div>
-        <div class="list-item-media">
-          <img id="item-qr-img-${item.id}" alt="QR" />
-          <img id="item-barcode-img-${item.id}" alt="Barcode" />
-        </div>
-        <div class="list-item-actions">
-          <button class="btn btn-danger" onclick="deleteItemFunc('${item.id}')">Delete</button>
-        </div>
-      `;
-      itemsList.appendChild(element);
-
-      const qrImg = document.getElementById(`item-qr-img-${item.id}`);
-      const barcodeImg = document.getElementById(`item-barcode-img-${item.id}`);
-      if (item.qr_data && qrImg) qrImg.src = item.qr_data;
-      if (item.barcode_data && barcodeImg) barcodeImg.src = item.barcode_data;
-      if ((!item.qr_data || !item.barcode_data) && item.item_code) {
-        const payload = buildItemQrPayload(item);
-        const barcodeValue = buildItemBarcodeValue(item);
-        Promise.all([generateQrDataUrl(payload), Promise.resolve(generateBarcodeDataUrl(barcodeValue))]).then(([qrData, barcodeData]) => {
-          if (qrData && qrImg) qrImg.src = qrData;
-          if (barcodeData && barcodeImg) barcodeImg.src = barcodeData;
-          fetch(`${API_BASE}/items/${item.id}/media`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: currentUser?.id || null, qrData, barcodeData })
-          }).catch(() => {});
-        });
-      }
-    });
 
     allItems = items;
     rebuildCodeLookupMaps();
     updateCodeSuggestions();
+    syncItemFilterCategoryOptions();
+    applyItemManagerFilters();
   } catch (error) {
     console.error('Error loading items:', error);
     const itemsList = document.getElementById('items-list');
@@ -1718,6 +1687,104 @@ async function loadItems() {
       itemsList.innerHTML = `<p style="text-align:center; color:#dc2626;">Error loading items: ${error.message}</p>`;
     }
   }
+}
+
+function syncItemFilterCategoryOptions() {
+  const categoryFilter = document.getElementById('item-filter-category');
+  if (!categoryFilter) return;
+
+  const previousValue = categoryFilter.value;
+  categoryFilter.innerHTML = '<option value="">All Categories</option>';
+  allCategories.forEach((cat) => {
+    const option = document.createElement('option');
+    option.value = cat.id;
+    option.textContent = cat.name;
+    categoryFilter.appendChild(option);
+  });
+  if (previousValue && Array.from(categoryFilter.options).some((opt) => opt.value === previousValue)) {
+    categoryFilter.value = previousValue;
+  }
+}
+
+function applyItemManagerFilters() {
+  const searchValue = String(document.getElementById('item-search-input')?.value || '').trim().toLowerCase();
+  const categoryValue = String(document.getElementById('item-filter-category')?.value || '').trim();
+  const stockValue = String(document.getElementById('item-filter-stock')?.value || '').trim();
+
+  const filteredItems = (allItems || []).filter((item) => {
+    const name = String(item?.item_name || '').toLowerCase();
+    const code = String(item?.item_code || '').toLowerCase();
+    const description = String(item?.description || '').toLowerCase();
+    const searchMatches = !searchValue || name.includes(searchValue) || code.includes(searchValue) || description.includes(searchValue);
+    const categoryMatches = !categoryValue || String(item?.category_id || '') === categoryValue;
+
+    const stock = Number(item?.stock_quantity || 0);
+    let stockMatches = true;
+    if (stockValue === 'in') stockMatches = stock > 10;
+    if (stockValue === 'low') stockMatches = stock > 0 && stock <= 10;
+    if (stockValue === 'out') stockMatches = stock <= 0;
+
+    return searchMatches && categoryMatches && stockMatches;
+  });
+
+  renderItemsList(filteredItems);
+}
+
+function renderItemsList(items) {
+  const itemsList = document.getElementById('items-list');
+  if (!itemsList) return;
+  itemsList.innerHTML = '';
+
+  if (!items || items.length === 0) {
+    itemsList.innerHTML = '<p style="text-align:center; color:#6b7280;">No items match your filters</p>';
+    return;
+  }
+
+  items.forEach(item => {
+    const stockWarning = item.stock_quantity <= 10 ? ' Low Stock' : ' In Stock';
+    const category = allCategories.find(c => c.id === item.category_id);
+    const categoryName = category?.name || 'Uncategorized';
+
+    const element = document.createElement('div');
+    element.className = 'list-item';
+    element.innerHTML = `
+      <div class="list-item-content">
+        <h4> ${item.item_name}</h4>
+        <p>Price: <strong>${item.item_price}</strong></p>
+        <p>Code: <strong>${item.item_code}</strong></p>
+        <p>Category: <strong>${categoryName}</strong></p>
+        <p>Stock: <strong>${item.stock_quantity}</strong> ${stockWarning}</p>
+        ${item.description ? `<p>Description: ${item.description}</p>` : ''}
+      </div>
+      <div class="list-item-media">
+        <img id="item-qr-img-${item.id}" alt="QR" />
+        <img id="item-barcode-img-${item.id}" alt="Barcode" />
+      </div>
+      <div class="list-item-actions">
+        <button class="btn btn-danger" onclick="deleteItemFunc('${item.id}')">Delete</button>
+      </div>
+    `;
+    itemsList.appendChild(element);
+
+    const qrImg = document.getElementById(`item-qr-img-${item.id}`);
+    const barcodeImg = document.getElementById(`item-barcode-img-${item.id}`);
+    if (item.qr_data && qrImg) qrImg.src = item.qr_data;
+    if (item.barcode_data && barcodeImg) barcodeImg.src = item.barcode_data;
+    if ((!item.qr_data || !item.barcode_data) && item.item_code && !itemMediaBackfillAttempted.has(item.id)) {
+      itemMediaBackfillAttempted.add(item.id);
+      const payload = buildItemQrPayload(item);
+      const barcodeValue = buildItemBarcodeValue(item);
+      Promise.all([generateQrDataUrl(payload), Promise.resolve(generateBarcodeDataUrl(barcodeValue))]).then(([qrData, barcodeData]) => {
+        if (qrData && qrImg) qrImg.src = qrData;
+        if (barcodeData && barcodeImg) barcodeImg.src = barcodeData;
+        fetch(`${API_BASE}/items/${item.id}/media`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: currentUser?.id || null, qrData, barcodeData })
+        }).catch(() => {});
+      });
+    }
+  });
 }
 
 async function loadItemSelect() {
@@ -3683,6 +3750,8 @@ async function loadAllCategories() {
         select.appendChild(option);
       });
     }
+    syncItemFilterCategoryOptions();
+    applyItemManagerFilters();
   } catch (error) {
     console.error('Error loading categories:', error);
   }
